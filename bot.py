@@ -4,7 +4,7 @@ import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 DATA_FILE = "players.json"
 
 # -------------------------
@@ -166,5 +166,6 @@ app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("choose", choose))
 app.add_handler(CommandHandler("fight", fight))
+
 
 app.run_polling()
