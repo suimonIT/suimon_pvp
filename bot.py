@@ -20,7 +20,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
 TZ = timezone.utc  # UTC for all daily resets
 
@@ -270,9 +270,33 @@ def display_name(player_id: str, fallback: str = "Player") -> str:
 
 
 def hp_bar(current: int, max_hp: int, length: int = 12) -> str:
-    current = max(0, min(current, max_hp))
-    filled = int(round((current / max_hp) * length)) if max_hp else 0
-    return "█" * filled + "░" * (length - filled)
+    """Colored HP bar using emoji blocks.
+
+    - >60%: 🟩
+    - 30–60%: 🟨
+    - <30%: 🟥
+    Empty: ⬛
+    """
+    mx = max(1, int(max_hp))
+    cur = max(0, min(int(current), mx))
+    pct = cur / mx
+    filled = int(round(pct * length))
+
+    if pct < 0.30:
+        fill = "🟥"
+    elif pct < 0.60:
+        fill = "🟨"
+    else:
+        fill = "🟩"
+
+    return fill * filled + "⬛" * (length - filled)
+
+
+def format_hp_line(label_md: str, current: int, max_hp: int) -> str:
+    """Readable HP line. `label_md` must be Markdown-safe."""
+    mx = max(1, int(max_hp))
+    cur = max(0, min(int(current), mx))
+    return f"❤️ **{label_md}** HP: {cur}/{mx}  {hp_bar(cur, mx)}"
 
 
 def xp_needed(level: int) -> int:
@@ -657,7 +681,7 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /heal — spend 1 Suiball to heal",
         "• /fight — battle!",
         "",
-        "✨ Tip: Facing issues? Contact @IceFlurryX or @abiclighter",
+        "✨ Tip: The battle text speed can be tuned via the DELAY constants at the top of the file.",
     ]
 
     # If user hasn't picked, add a friendly note.
@@ -1006,8 +1030,8 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
     
                     h1 = f"{hp_bar(champ1['hp'], champ1['max_hp'])} {max(champ1['hp'],0)}/{champ1['max_hp']}"
                     h2 = f"{hp_bar(champ2['hp'], champ2['max_hp'])} {max(champ2['hp'],0)}/{champ2['max_hp']}"
-                    lines.append(f"❤️ **{c1['display']}:** {h1}")
-                    lines.append(f"💙 **{c2['display']}:** {h2}")
+                    lines.append(f"❤️ **{c1_label}:** {h1}")
+                    lines.append(f"💙 **{c2_label}:** {h2}")
     
                     await edit_battle(msg, lines, ACTION_DELAY)
     
