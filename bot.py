@@ -20,7 +20,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = os.getenv("BOT_TOKEN") or "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
 TZ = timezone.utc  # UTC for all daily resets
 
@@ -528,10 +528,11 @@ def do_move(attacker: Dict, defender: Dict, a_key: str, d_key: str, a_level: int
 
 
 def grant_xp_with_hp_adjust(player_id: str, gained: int) -> List[str]:
-    """Grant XP and handle level-ups. If max HP increases, current HP increases by the same delta."""
+    """Grant XP and handle level-ups. If max HP increases, current HP increases by the same delta.
+    Sets players[player_id]["just_leveled"]=True if at least one level-up occurred.
+    """
     p = players[player_id]
 
-    # Capture old max HP for delta
     champ_key = p.get("champ")
     old_level = int(p.get("level", 1))
     old_max = get_stats(champ_key, old_level)["hp"] if champ_key in CHAMPS else 0
@@ -540,14 +541,15 @@ def grant_xp_with_hp_adjust(player_id: str, gained: int) -> List[str]:
     p["xp"] = int(p.get("xp", 0)) + int(gained)
 
     levelups: List[str] = []
+    leveled = False
     while p["xp"] >= xp_needed(int(p.get("level", 1))):
         need = xp_needed(int(p.get("level", 1)))
         p["xp"] -= need
         p["level"] = int(p.get("level", 1)) + 1
+        leveled = True
 
         new_level = int(p["level"])
         new_max = get_stats(champ_key, new_level)["hp"] if champ_key in CHAMPS else old_max
-        # Increase current HP by the max HP increase (classic-feel reward)
         delta = max(0, new_max - old_max)
         cur_hp = min(new_max, cur_hp + delta)
         old_max = new_max
@@ -555,8 +557,8 @@ def grant_xp_with_hp_adjust(player_id: str, gained: int) -> List[str]:
         set_current_hp(player_id, cur_hp)
         levelups.append(f"✨ **{display_name(player_id)}** reached **Lv.{p['level']}**!")
 
-    # Persist current HP even without level-up
     set_current_hp(player_id, cur_hp)
+    p["just_leveled"] = leveled
     return levelups
 
 
@@ -929,8 +931,7 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
             await asyncio.sleep(delay)
 
     if chat_id in ACTIVE_BATTLES:
-
-        await push(message_id, "⚠️ A battle is already running in this chat. Please wait.")
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ A battle is already running in this chat. Please wait.")
         return
 
     ACTIVE_BATTLES.add(chat_id)
@@ -998,7 +999,7 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
         dmg1_total = 0
         dmg2_total = 0
 
-        while champ1["hp"] > 0 and champ2["hp"] > 0 and round_counter <= 30:
+        while champ1["hp"] > 0 and champ2["hp"] > 0 and round_counter <= MAX_ROUNDS:
             await push(message_id, f"━━━ **Round {round_counter}** ━━━", delay=0.7)
 
             turn_order = [0, 1] if first == 0 else [1, 0]
@@ -1041,11 +1042,13 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
                         dmg2_total += dealt
 
                     # HUD after each action (readable, compact)
-                    await push(message_id, 
+                    await push_block(
+                        message_id,
                         battle_hud(
                             c1_label_plain, max(champ1["hp"], 0), champ1["max_hp"],
                             c2_label_plain, max(champ2["hp"], 0), champ2["max_hp"],
-                        )
+                        ),
+                        delay=0.45,
                     )
                     
 
@@ -1053,9 +1056,6 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
                 await push(message_id, "The tension rises…", delay=0.8)
 
             round_counter += 1
-            if round_counter > MAX_ROUNDS:
-                await push(message_id, "⏳ Battle took too long — it ends in a draw.", delay=0.6)
-                break
 
         # Determine winner
         if champ1["hp"] > 0 and champ2["hp"] <= 0:
@@ -1087,7 +1087,7 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
         # Persist HP
         set_current_hp(user, int(max(champ1["hp"], 0)))
         set_current_hp(opponent, int(max(champ2["hp"], 0)))
-        save_players()
+        save_players(players)
 
         max1_after = int(get_stats(c1_key, int(players[user].get("level", 1)))["hp"])
         max2_after = int(get_stats(c2_key, int(players[opponent].get("level", 1)))["hp"])
@@ -1109,16 +1109,157 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
             for n, lv in lvlups:
                 await push(message_id, f"⭐ **{n}** is now **Lv.{lv}**!", delay=0.6)
 
-        save_players()
+        save_players(players)
 
     finally:
         ACTIVE_BATTLES.discard(chat_id)
+
+
+# =========================
+# BATTLE COMMANDS + XP
+# =========================
+
+def award_battle_xp(winner: str, loser: str) -> Tuple[int, int]:
+    """
+    Award XP and update W/L.
+    Returns (xp_winner, xp_loser).
+    """
+    # Simple, tweakable values
+    xp_winner = 45
+    xp_loser = 20
+
+    players[winner]["wins"] = int(players[winner].get("wins", 0)) + 1
+    players[loser]["losses"] = int(players[loser].get("losses", 0)) + 1
+
+    # XP + possible level-ups (also sets just_leveled flags)
+    grant_xp_with_hp_adjust(winner, xp_winner)
+    grant_xp_with_hp_adjust(loser, xp_loser)
+
+    return xp_winner, xp_loser
+
+
+async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /fight in groups:
+      - If exactly 2 eligible players -> battle starts instantly
+      - If 3+ -> must target by reply or /fight @Name, then opponent must Accept
+    """
+    user = await _bootstrap_user(update)
+    chat = update.effective_chat
+    if not chat:
+        return
+    chat_id = int(chat.id)
+
+    # Must have champ
+    if players[user].get("champ") not in CHAMPS:
+        await update.message.reply_text("⚠️ Choose your champ first with /choose (or /start).")
+        return
+
+    # Find eligible opponents in this chat
+    eligible = _eligible_players_in_chat(chat_id)
+    eligible = [uid for uid in eligible if uid != user]
+
+    if not eligible:
+        await update.message.reply_text("No opponents in this chat yet. Ask someone to /choose first!")
+        return
+
+    # If exactly one opponent -> instant start
+    if len(eligible) == 1:
+        await _run_battle(chat_id, user, eligible[0], context)
+        return
+
+    # 3+ players -> require target
+    target = _parse_target_user_id(update, context)
+    if not target or target not in eligible:
+        await update.message.reply_text(
+            "Multiple opponents found.
+"
+            "Reply to a player's message with /fight, or use /fight @Name."
+        )
+        return
+
+    # Create pending challenge keyed by (chat_id, target_user_id)
+    PENDING_CHALLENGES[(chat_id, target)] = {
+        "from": user,
+        "ts": datetime.now(TZ).isoformat(),
+    }
+
+    challenger_name = md_escape(display_name(user, "Challenger"))
+    target_name = md_escape(display_name(target, "Opponent"))
+
+    kb = InlineKeyboardMarkup(
+        [[
+            InlineKeyboardButton("✅ Accept", callback_data=f"suimon_accept|{user}"),
+            InlineKeyboardButton("❌ Decline", callback_data=f"suimon_decline|{user}"),
+        ]]
+    )
+
+    await update.message.reply_text(
+        f"⚔️ **{challenger_name}** challenges **{target_name}**!
+"
+        f"{target_name}, do you accept?",
+        reply_markup=kb,
+        parse_mode="Markdown",
+    )
+
+
+async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handles Accept/Decline buttons.
+    callback_data format: suimon_accept|<challenger_id> or suimon_decline|<challenger_id>
+    """
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+
+    data = query.data or ""
+    # data begins with suimon_accept|...
+    try:
+        action, challenger = data.split("|", 1)
+    except ValueError:
+        await query.edit_message_text("Invalid challenge data.")
+        return
+
+    chat_id = int(query.message.chat.id)
+    opponent = str(query.from_user.id)
+
+    key = (chat_id, opponent)
+    payload = PENDING_CHALLENGES.get(key)
+    if not payload:
+        await query.edit_message_text("⚠️ Challenge expired or already handled.")
+        return
+
+    # Only the challenged user can answer
+    expected = payload.get("from")
+    if expected and str(expected) != str(challenger):
+        # stale button or mismatch
+        await query.edit_message_text("⚠️ Challenge mismatch. Please challenge again.")
+        PENDING_CHALLENGES.pop(key, None)
+        return
+
+    if action.startswith("suimon_decline"):
+        PENDING_CHALLENGES.pop(key, None)
+        await query.edit_message_text("❌ Challenge declined.")
+        return
+
+    if not action.startswith("suimon_accept"):
+        await query.edit_message_text("Invalid action.")
+        return
+
+    PENDING_CHALLENGES.pop(key, None)
+    await query.edit_message_text("✅ Accepted! Battle starting…")
+    await _run_battle(chat_id, str(challenger), opponent, context)
+
 
 # =========================
 # MAIN
 # =========================
 
 def main():
+    if not TOKEN or TOKEN == "YOUR_BOT_TOKEN":
+        raise RuntimeError("BOT_TOKEN is not set. Add it as env var BOT_TOKEN (or GitHub secret).")
+
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
