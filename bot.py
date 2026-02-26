@@ -10,7 +10,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
 
 # -------------------------
@@ -480,7 +480,7 @@ def can_act(state: Dict) -> Tuple[bool, List[str]]:
     if state.get("sleep_turns", 0) > 0:
         state["sleep_turns"] -= 1
         if state["sleep_turns"] > 0:
-            return False, [f"{STATUS_EMOJI['sleep']} …**is asleep** weiter und kann nicht angreifen!"]
+            return False, [f"{STATUS_EMOJI['sleep']} …**is asleep** and can't move!"]
         return False, [f"{STATUS_EMOJI['sleep']} wakes up groggy and misses the turn!"]
     return True, []
 
@@ -569,7 +569,7 @@ def do_move(attacker: Dict, defender: Dict, attacker_key: str, defender_key: str
     defender["hp"] -= dmg
 
     crit_txt = " **CRIT!**" if crit else ""
-    out.append(f"💢 Treffer: **{dmg}** Schaden{crit_txt}{format_effect(eff)}")
+    out.append(f"💢 Hit: **{dmg}** damage{crit_txt}{format_effect(eff)}")
 
     # Burn application
     if kind == "damage_burn":
