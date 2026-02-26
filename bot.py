@@ -20,7 +20,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 DATA_FILE = "players.json"
 TZ = timezone.utc  # UTC for all daily resets
 
@@ -681,7 +681,7 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /heal — spend 1 Suiball to heal",
         "• /fight — battle!",
         "",
-        "✨ Tip: The battle text speed can be tuned via the DELAY constants at the top of the file.",
+        "✨ Support: @IceFlurryX / @abiclighter",
     ]
 
     # If user hasn't picked, add a friendly note.
