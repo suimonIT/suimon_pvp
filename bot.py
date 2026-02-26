@@ -10,7 +10,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
 
 # -------------------------
@@ -43,46 +43,46 @@ CHAMPS: Dict[str, Dict] = {
         "base": {"hp": 110, "atk": 19, "def": 12, "spd": 9},
         "moves": [
             {
-                "name": "Rankenhieb",
+                "name": "Vine Whip",
                 "kind": "damage",
                 "power": 40,
                 "acc": 0.95,
                 "text": [
-                    "schlägt mit **Rankenhieb** zu!",
-                    "peitscht die Ranken: **Rankenhieb**!",
-                    "setzt **Rankenhieb** ein!",
+                    "schlägt with **Vine Whip** zu!",
+                    "whips its vines: **Vine Whip**!",
+                    "sends out **Vine Whip** ein!",
                 ],
             },
             {
-                "name": "Blattsturm",
+                "name": "Leaf Storm",
                 "kind": "damage",
                 "power": 55,
                 "acc": 0.88,
                 "text": [
-                    "entfesselt **Blattsturm** — Blätter schneiden durch die Luft!",
-                    "ruft einen Wirbel: **Blattsturm**!",
+                    "unleashes **Leaf Storm** — razor leaves slice the air!",
+                    "summons a vortex: **Leaf Storm**!",
                 ],
             },
             {
-                "name": "Schlafspore",
+                "name": "Sleep Spore",
                 "kind": "status_sleep",
                 "power": 0,
                 "acc": 0.75,
                 "sleep_turns": (1, 2),
                 "text": [
-                    "streut **Schlafspore**… die Augen werden schwer.",
-                    "wirbelt **Schlafspore** in die Arena!",
+                    "scatters **Sleep Spore**… eyelids grow heavy.",
+                    "swirls **Sleep Spore** across the arena!",
                 ],
             },
             {
-                "name": "Synthese",
+                "name": "Synthesis",
                 "kind": "heal",
                 "power": 0,
                 "acc": 1.0,
                 "heal_pct": 0.22,
                 "text": [
-                    "nutzt **Synthese** und sammelt Sonnenenergie!",
-                    "setzt **Synthese** ein — grüne Energie flackert auf!",
+                    "nutzt **Synthesis** und sammelt Sonnenenergie!",
+                    "sends out **Synthesis** ein — grüne Energie flackert auf!",
                 ],
             },
         ],
@@ -95,46 +95,46 @@ CHAMPS: Dict[str, Dict] = {
         "base": {"hp": 102, "atk": 22, "def": 10, "spd": 12},
         "moves": [
             {
-                "name": "Glut",
+                "name": "Ember",
                 "kind": "damage_burn",
                 "power": 40,
                 "acc": 0.95,
                 "burn_chance": 0.30,
                 "text": [
-                    "spuckt Funken: **Glut**!",
-                    "setzt **Glut** ein — die Luft knistert!",
+                    "spuckt Funken: **Ember**!",
+                    "sends out **Ember** ein — die Luft knistert!",
                 ],
             },
             {
-                "name": "Flammenwurf",
+                "name": "Flamethrower",
                 "kind": "damage",
                 "power": 55,
                 "acc": 0.90,
                 "text": [
-                    "schleudert **Flammenwurf** — eine Feuerlanze!",
-                    "setzt **Flammenwurf** ein!",
+                    "schleudert **Flamethrower** — eine Feuerlanze!",
+                    "sends out **Flamethrower** ein!",
                 ],
             },
             {
-                "name": "Feuersprint",
+                "name": "Fire Sprint",
                 "kind": "buff_spd",
                 "power": 0,
                 "acc": 1.0,
                 "stages": 1,
                 "text": [
-                    "zündet **Feuersprint** — schneller als der Blick!",
-                    "nutzt **Feuersprint** und bekommt Tempo!",
+                    "zündet **Fire Sprint** — schneller als der Blick!",
+                    "nutzt **Fire Sprint** und bekommt Tempo!",
                 ],
             },
             {
-                "name": "Inferno-Klaue",
+                "name": "Inferno Claw",
                 "kind": "damage_highcrit",
                 "power": 48,
                 "acc": 0.92,
                 "crit_bonus": 0.10,
                 "text": [
-                    "reißt mit **Inferno-Klaue** durch die Verteidigung!",
-                    "setzt **Inferno-Klaue** ein — glühende Krallen!",
+                    "reißt with **Inferno Claw** durch die Verteidigung!",
+                    "sends out **Inferno Claw** ein — glühende Krallen!",
                 ],
             },
         ],
@@ -147,45 +147,45 @@ CHAMPS: Dict[str, Dict] = {
         "base": {"hp": 115, "atk": 18, "def": 14, "spd": 8},
         "moves": [
             {
-                "name": "Aquaknarre",
+                "name": "Water Gun",
                 "kind": "damage",
                 "power": 40,
                 "acc": 0.96,
                 "text": [
-                    "schießt **Aquaknarre**!",
-                    "setzt **Aquaknarre** ein — Wasser prasselt!",
+                    "schießt **Water Gun**!",
+                    "sends out **Water Gun** ein — Wasser prasselt!",
                 ],
             },
             {
-                "name": "Hydrostoß",
+                "name": "Hydro Burst",
                 "kind": "damage",
                 "power": 60,
                 "acc": 0.82,
                 "text": [
-                    "lädt Druck auf… **Hydrostoß**!",
-                    "setzt **Hydrostoß** ein — eine Wasserwucht!",
+                    "lädt Druck auf… **Hydro Burst**!",
+                    "sends out **Hydro Burst** ein — eine Wasserwucht!",
                 ],
             },
             {
-                "name": "Panzerwall",
+                "name": "Shell Wall",
                 "kind": "buff_def",
                 "power": 0,
                 "acc": 1.0,
                 "stages": 1,
                 "text": [
-                    "zieht sich zurück: **Panzerwall**!",
-                    "nutzt **Panzerwall** — die Verteidigung steigt!",
+                    "braces itself: **Shell Wall**!",
+                    "nutzt **Shell Wall** — die Verteidigung steigt!",
                 ],
             },
             {
-                "name": "Heilquelle",
+                "name": "Healing Spring",
                 "kind": "heal",
                 "power": 0,
                 "acc": 1.0,
                 "heal_pct": 0.18,
                 "text": [
-                    "ruft eine **Heilquelle** — Wasser glitzert beruhigend!",
-                    "setzt **Heilquelle** ein und regeneriert!",
+                    "ruft eine **Healing Spring** — Wasser glitzert beruhigend!",
+                    "sends out **Healing Spring** ein und regeneriert!",
                 ],
             },
         ],
@@ -373,30 +373,30 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🔥 **Welcome to Suimon Arena!**\n\n"
-        "⚠️ Deine Wahl ist **permanent**!\n\n"
-        "Wähle deinen Champ:\n"
+        "⚠️ Your choice is **permanent**!\n\n"
+        "Choose your champ:\n"
         "/choose basaurimon\n"
         "/choose suimander\n"
         "/choose suiqrtle\n\n"
-        "Tipp: /champs zeigt Infos.",
+        "Tip: /champs shows info.",
         parse_mode="Markdown"
     )
 
 async def champs_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lines = ["📜 **Starter-Champs**", ""]
+    lines = ["📜 **Starter Champs**", ""]
     for k, c in CHAMPS.items():
         t = c["type"]
-        lines.append(f"{TYPE_EMOJI[t]} **{c['display']}** — Typ: **{t.upper()}**")
-        lines.append(f"   Stark gegen: **{CHAMPS_BY_TYPE[t]['strong_against'].upper()}** | Schwach gegen: **{CHAMPS_BY_TYPE[t]['weak_to'].upper()}**")
+        lines.append(f"{TYPE_EMOJI[t]} **{c['display']}** — Type: **{t.upper()}**")
+        lines.append(f"   Strong vs: **{CHAMPS_BY_TYPE[t]['strong_against'].upper()}** | Weak vs: **{CHAMPS_BY_TYPE[t]['weak_to'].upper()}**")
     lines.append("")
-    lines.append("Wählen: /choose basaurimon | suimander | suiqrtle")
+    lines.append("Choose: /choose basaurimon | suimander | suiqrtle")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = str(update.effective_user.id)
 
     if user in players and players[user].get("champ") in CHAMPS:
-        await update.message.reply_text("❌ Du hast bereits einen permanenten Champ gewählt.")
+        await update.message.reply_text("❌ You already picked a permanent champ.")
         return
 
     if not context.args:
@@ -405,7 +405,7 @@ async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     champ_key = champ_key_from_input(context.args[0])
     if champ_key not in CHAMPS:
-        await update.message.reply_text("Ungültig! Nutze: /choose basaurimon | suimander | suiqrtle")
+        await update.message.reply_text("Invalid! Use: /choose basaurimon | suimander | suiqrtle")
         return
 
     players[user] = {
@@ -420,15 +420,15 @@ async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     champ = champ_from_key(champ_key)
     await update.message.reply_text(
-        f"✅ Du hast **{champ['display']}** gewählt! {TYPE_EMOJI[champ['type']]}\n"
-        "Dein Schicksal ist besiegelt 🔒",
+        f"✅ You chose **{champ['display']}**! {TYPE_EMOJI[champ['type']]}\n"
+        "Your fate is sealed 🔒",
         parse_mode="Markdown"
     )
 
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = str(update.effective_user.id)
     if user not in players or players[user].get("champ") not in CHAMPS:
-        await update.message.reply_text("Du musst zuerst einen Champ wählen: /start")
+        await update.message.reply_text("You must choose a champ first: /start")
         return
 
     p = players[user]
@@ -463,17 +463,17 @@ def status_tick_lines(state: Dict, champ_name: str) -> List[str]:
         state["burn_turns"] -= 1
         dmg = int(round(state["max_hp"] * 0.06))
         state["hp"] -= dmg
-        lines.append(f"{STATUS_EMOJI['burn']} **{champ_name}** brennt! −**{dmg}** HP.")
+        lines.append(f"{STATUS_EMOJI['burn']} **{champ_name}** is burning! −**{dmg}** HP.")
         if state["burn_turns"] == 0:
-            lines.append(f"{STATUS_EMOJI['burn']} Die Flammen bei **{champ_name}** erlöschen.")
+            lines.append(f"{STATUS_EMOJI['burn']} The flames on **{champ_name}** go out.")
     return lines
 
 def can_act(state: Dict) -> Tuple[bool, List[str]]:
     if state.get("sleep_turns", 0) > 0:
         state["sleep_turns"] -= 1
         if state["sleep_turns"] > 0:
-            return False, [f"{STATUS_EMOJI['sleep']} …**schläft** weiter und kann nicht angreifen!"]
-        return False, [f"{STATUS_EMOJI['sleep']} wacht benommen auf und verpasst die Runde!"]
+            return False, [f"{STATUS_EMOJI['sleep']} …**is asleep** weiter und kann nicht angreifen!"]
+        return False, [f"{STATUS_EMOJI['sleep']} wakes up groggy and misses the turn!"]
     return True, []
 
 def crit_multiplier(base_chance: float) -> Tuple[float, bool]:
@@ -482,9 +482,9 @@ def crit_multiplier(base_chance: float) -> Tuple[float, bool]:
 
 def format_effect(effect_key: str) -> str:
     if effect_key == "strong":
-        return " — **SEHR effektiv!**"
+        return " — **SUPER effective!**"
     if effect_key == "weak":
-        return " — nicht sehr effektiv…"
+        return " — not very effective…"
     return ""
 
 def do_move(attacker: Dict, defender: Dict, attacker_key: str, defender_key: str,
@@ -498,7 +498,7 @@ def do_move(attacker: Dict, defender: Dict, attacker_key: str, defender_key: str
 
     # Accuracy check
     if random.random() > float(move.get("acc", 1.0)):
-        out.append(f"{EFFECT_EMOJI['miss']} **{a_name}** versucht **{move['name']}**… und verfehlt!")
+        out.append(f"{EFFECT_EMOJI['miss']} **{a_name}** tries **{move['name']}**… but misses!")
         return out
 
     # Flavor text
@@ -510,18 +510,18 @@ def do_move(attacker: Dict, defender: Dict, attacker_key: str, defender_key: str
     if kind == "heal":
         heal = int(round(attacker["max_hp"] * float(move.get("heal_pct", 0.2))))
         attacker["hp"] = min(attacker["max_hp"], attacker["hp"] + heal)
-        out.append(f"✨ **{a_name}** heilt **+{heal}** HP.")
+        out.append(f"✨ **{a_name}** heals **+{heal}** HP.")
         return out
 
     # Buffs
     if kind == "buff_spd":
         attacker["spd_stage"] = int(clamp(attacker.get("spd_stage", 0) + int(move.get("stages", 1)), 0, 3))
-        out.append(f"🥾 Speed steigt! (Stufe {attacker['spd_stage']})")
+        out.append(f"🥾 Speed rises! (Stufe {attacker['spd_stage']})")
         return out
 
     if kind == "buff_def":
         attacker["def_stage"] = int(clamp(attacker.get("def_stage", 0) + int(move.get("stages", 1)), 0, 3))
-        out.append(f"🛡 Defense steigt! (Stufe {attacker['def_stage']})")
+        out.append(f"🛡 Defense rises! (Stufe {attacker['def_stage']})")
         return out
 
     # Sleep status
@@ -529,11 +529,11 @@ def do_move(attacker: Dict, defender: Dict, attacker_key: str, defender_key: str
         # small chance to resist if defender is faster
         resist = clamp((defender["spd"] - attacker["spd"]) / 50.0, 0.0, 0.22)
         if random.random() < resist:
-            out.append(f"💨 **{d_name}** schüttelt die Sporen ab!")
+            out.append(f"💨 **{d_name}** shakes off the spores!")
             return out
         turns = move.get("sleep_turns", (1, 2))
         defender["sleep_turns"] = random.randint(int(turns[0]), int(turns[1]))
-        out.append(f"{STATUS_EMOJI['sleep']} **{d_name}** schläft ein! ({defender['sleep_turns']} Runde(n))")
+        out.append(f"{STATUS_EMOJI['sleep']} **{d_name}** is asleep ein! ({defender['sleep_turns']} turn(s))")
         return out
 
     # Damage kinds
@@ -567,7 +567,7 @@ def do_move(attacker: Dict, defender: Dict, attacker_key: str, defender_key: str
     if kind == "damage_burn":
         if defender.get("burn_turns", 0) == 0 and random.random() < float(move.get("burn_chance", 0.25)):
             defender["burn_turns"] = 3
-            out.append(f"{STATUS_EMOJI['burn']} **{d_name}** wurde verbrannt! (3 Runden)")
+            out.append(f"{STATUS_EMOJI['burn']} **{d_name}** was burned! (3 turns)")
 
     return out
 
@@ -575,12 +575,12 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = str(update.effective_user.id)
 
     if user not in players or players[user].get("champ") not in CHAMPS:
-        await update.message.reply_text("Du musst zuerst einen Champ wählen: /start")
+        await update.message.reply_text("You must choose a champ first: /start")
         return
 
     opponents = [p for p in players if p != user and players[p].get("champ") in CHAMPS]
     if not opponents:
-        await update.message.reply_text("Keine Gegner verfügbar!")
+        await update.message.reply_text("No opponents available!")
         return
 
     opponent = random.choice(opponents)
@@ -619,18 +619,18 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines: List[str] = []
     lines.append("⚔️ **BATTLE START** ⚔️")
-    lines.append(f"👤 **{p1_name}** setzt **{c1['display']}** ein!  (Lv.{lv1})")
-    lines.append(f"👤 **{p2_name}** setzt **{c2['display']}** ein!  (Lv.{lv2})")
+    lines.append(f"👤 **{p1_name}** sends out **{c1['display']}** ein!  (Lv.{lv1})")
+    lines.append(f"👤 **{p2_name}** sends out **{c2['display']}** ein!  (Lv.{lv2})")
     lines.append("")
-    lines.append("🏟️ Das Publikum verstummt…")
+    lines.append("🏟️ The crowd falls silent…")
     msg = await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
     await asyncio.sleep(INTRO_DELAY)
 
     # teaser animation
-    lines.append("🌫️ Staub wirbelt auf. Schritte hallen.")
+    lines.append("🌫️ Dust swirls. Footsteps echo.")
     await edit_battle(msg, lines, TEASER_DELAY)
-    lines.append("🎥 Die Kamera zoomt ran…")
+    lines.append("🎥 The camera zooms in…")
     await edit_battle(msg, lines, TEASER_DELAY)
 
     await countdown_animation(msg, lines)
@@ -640,7 +640,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     spd2 = champ2["spd"] * (1.0 + 0.15 * champ2["spd_stage"])
     first = pick_first_attacker(int(spd1), int(spd2))
     starter_name = c1["display"] if first == 0 else c2["display"]
-    lines.append(f"🏁 **{starter_name}** startet!")
+    lines.append(f"🏁 **{starter_name}**** takes the first move!")
     await edit_battle(msg, lines, ROUND_BREAK_DELAY)
 
     round_counter = 1
@@ -649,7 +649,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     while champ1["hp"] > 0 and champ2["hp"] > 0 and round_counter <= 30:
         lines.append("")
-        lines.append(f"━━━ **Runde {round_counter}** ━━━")
+        lines.append(f"━━━ **Round {round_counter}** ━━━")
         await edit_battle(msg, lines, ROUND_BREAK_DELAY)
 
         turn_order = [0, 1] if first == 0 else [1, 0]
@@ -702,7 +702,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Small chance momentum shifts (purely flavor)
         if champ1["hp"] > 0 and champ2["hp"] > 0 and random.random() < 0.14:
             first = 1 - first
-            lines.append("🔄 **Momentum Shift!** Ein Fehler… ein Vorteil…")
+            lines.append("🔄 **Momentum Shift!** One mistake… one opening…")
             await edit_battle(msg, lines, ROUND_BREAK_DELAY)
 
         round_counter += 1
@@ -734,12 +734,12 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_players(players)
 
     lines.append("")
-    lines.append("🏟️ Der Staub legt sich…")
+    lines.append("🏟️ The dust settles…")
     await edit_battle(msg, lines, END_DELAY)
 
     w_name = display_name(winner, "Winner")
     w_champ = champ_from_key(players[winner]["champ"])["display"]
-    lines.append(f"🏆 **Winner: {w_name}** mit **{w_champ}**!")
+    lines.append(f"🏆 **Winner: {w_name}** with **{w_champ}**!")
     lines.append(f"🎁 XP: **{xp_w}** (Winner) / **{xp_l}** (Loser)")
     await edit_battle(msg, lines, END_DELAY)
 
