@@ -20,7 +20,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
 TZ = timezone.utc  # UTC for all daily resets
 
@@ -279,34 +279,29 @@ def md_escape(s: str) -> str:
         s = s.replace(ch, f"\\{ch}")
     return s
 
-def hp_bar(current: int, max_hp: int, length: int = 12) -> str:
-    """Colored HP bar using emoji blocks.
-
-    - >60%: 🟩
-    - 30–60%: 🟨
-    - <30%: 🟥
-    Empty: ⬛
-    """
+def hp_bar(current: int, max_hp: int, length: int = 8) -> str:
+    """Readable HP bar (text blocks)."""
     mx = max(1, int(max_hp))
     cur = max(0, min(int(current), mx))
-    pct = cur / mx
-    filled = int(round(pct * length))
-
-    if pct < 0.30:
-        fill = "🟥"
-    elif pct < 0.60:
-        fill = "🟨"
-    else:
-        fill = "🟩"
-
-    return fill * filled + "⬛" * (length - filled)
+    filled = int(round((cur / mx) * length))
+    return "█" * filled + "░" * (length - filled)
 
 
-def format_hp_line(label_md: str, current: int, max_hp: int) -> str:
-    """Readable HP line. `label_md` must be Markdown-safe."""
+def format_hp_line(label: str, current: int, max_hp: int) -> str:
+    """Plain (non-markdown) HP line for HUD blocks."""
     mx = max(1, int(max_hp))
     cur = max(0, min(int(current), mx))
-    return f"❤️ **{label_md}** HP: {cur}/{mx}  {hp_bar(cur, mx)}"
+    return f"{label}
+HP {cur:>3}/{mx:<3} [{hp_bar(cur, mx)}]"
+
+
+def battle_hud(p1_label: str, hp1: int, max1: int, p2_label: str, hp2: int, max2: int) -> str:
+    """Monospace HUD card."""
+    return "```text
+" + format_hp_line(p1_label, hp1, max1) + "
+
+" + format_hp_line(p2_label, hp2, max2) + "
+```"
 
 
 def xp_needed(level: int) -> int:
@@ -898,329 +893,206 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 
 async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTypes.DEFAULT_TYPE):
+    """Runs a full battle with paced, message-by-message narration (no giant edited wall)."""
 
-    # Load the latest player data for this battle run.
-    # (Accept callbacks don't share a `players` variable, so relying on one causes NameError.)
+    # Load latest player data (callbacks don't share locals)
     global players
     players = load_players()
 
-    # NOTE: do not rely on Update.message here (callback queries don't have it consistently).
     async def send_plain(text: str) -> None:
         await context.bot.send_message(chat_id=chat_id, text=text)
 
     async def send_md(text: str) -> None:
         await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
 
+    async def beat(text: str, *, md: bool = False, delay: float = 0.75) -> None:
+        """Send 1 line, then wait a bit (cinematic pacing)."""
+        if md:
+            await send_md(text)
+        else:
+            await send_plain(text)
+        if delay > 0:
+            await asyncio.sleep(delay)
+
     if chat_id in ACTIVE_BATTLES:
         await send_plain("⚠️ A battle is already running in this chat. Please wait.")
         return
+
     ACTIVE_BATTLES.add(chat_id)
     try:
-    
         p1 = players[user]
         p2 = players[opponent]
-    
-        p1_name = display_name(user, "Player A")
-        p2_name = display_name(opponent, "Player B")
-    
+
+        p1_name_raw = display_name(user, "Player A")
+        p2_name_raw = display_name(opponent, "Player B")
+
+        # Markdown-safe trainer names for narration
+        p1_name = md_escape(p1_name_raw)
+        p2_name = md_escape(p2_name_raw)
+
         c1_key = p1["champ"]
         c2_key = p2["champ"]
-    
+
         c1 = champ_from_key(c1_key)
         c2 = champ_from_key(c2_key)
-        # Trainer-tagged labels (important when both pick the same champ)
-        c1_label = f"{p1_name}'s {c1['display']}"
-        c2_label = f"{p2_name}'s {c2['display']}"
-    
+
         lv1 = int(p1.get("level", 1))
         lv2 = int(p2.get("level", 1))
-    
+
         s1 = get_stats(c1_key, lv1)
         s2 = get_stats(c2_key, lv2)
-    
-        # Persistent HP (champ keeps last battle HP)
+
+        # Persistent HP
         p1_cur_hp = get_or_init_current_hp(user)
         p2_cur_hp = get_or_init_current_hp(opponent)
-    
-        # If either champ is fainted, don't start
+
         if p1_cur_hp <= 0:
-            ACTIVE_BATTLES.discard(chat_id)
-            await send_md(
-                f"❌ **{p1_name}**'s **{c1_label}** has fainted (HP 0). Use /heal first."
-            )
+            await send_md(f"❌ **{p1_name}**'s **{c1['display']}** has fainted (HP 0). Use /heal first.")
             return
         if p2_cur_hp <= 0:
-            ACTIVE_BATTLES.discard(chat_id)
-            await send_md(
-                f"❌ **{p2_name}**'s **{c2_label}** has fainted (HP 0). They must /heal first."
-            )
+            await send_md(f"❌ **{p2_name}**'s **{c2['display']}** has fainted (HP 0). They must /heal first.")
             return
-    
-        champ1 = {
-            "hp": int(p1_cur_hp),
-            "max_hp": s1["hp"],
-            "atk": s1["atk"],
-            "def": s1["def"],
-            "spd": s1["spd"],
-            "burn_turns": 0,
-            "sleep_turns": 0,
-        }
-        champ2 = {
-            "hp": int(p2_cur_hp),
-            "max_hp": s2["hp"],
-            "atk": s2["atk"],
-            "def": s2["def"],
-            "spd": s2["spd"],
-            "burn_turns": 0,
-            "sleep_turns": 0,
-        }
-    
-        lines: List[str] = []
-        # Escape names for Markdown and label champs by trainer (important when both pick the same champ)
-        p1_disp = md_escape(p1_name)
-        p2_disp = md_escape(p2_name)
-        c1_label = f"{p1_disp}'s {c1['display']}"
-        c2_label = f"{p2_disp}'s {c2['display']}"
-    
-        lines.append("⚔️ **BATTLE START** ⚔️")
-        lines.append(f"👤 **{p1_disp}** sent out **{c1_label}**!  (Lv.{lv1})")
-        lines.append(f"👤 **{p2_disp}** sent out **{c2_label}**!  (Lv.{lv2})")
-        lines.append("")
-        lines.append(format_hp_line(c1_label, champ1['hp'], champ1['max_hp']))
-        lines.append(format_hp_line(c2_label, champ2['hp'], champ2['max_hp']))
-        lines.append("")
-        lines.append("…")
-        msg = await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="Markdown")
-    
-        await asyncio.sleep(INTRO_DELAY)
-    
-        lines.append("The battle begins!")
-        await edit_battle(msg, lines, TEASER_DELAY)
-    
-        await countdown_animation(msg, lines)
-    
+
+        champ1 = {"hp": int(p1_cur_hp), "max_hp": s1["hp"], "atk": s1["atk"], "def": s1["def"], "spd": s1["spd"], "burn_turns": 0, "sleep_turns": 0}
+        champ2 = {"hp": int(p2_cur_hp), "max_hp": s2["hp"], "atk": s2["atk"], "def": s2["def"], "spd": s2["spd"], "burn_turns": 0, "sleep_turns": 0}
+
+        # Trainer-tagged labels (important when both have same champ)
+        c1_label_md = f"{p1_name}'s {c1['display']}"
+        c2_label_md = f"{p2_name}'s {c2['display']}"
+        c1_label_plain = f"{p1_name_raw} - {c1['display']} (Lv.{lv1})"
+        c2_label_plain = f"{p2_name_raw} - {c2['display']} (Lv.{lv2})"
+
+        # Intro (line by line)
+        await beat("⚔️ **BATTLE START** ⚔️", md=True, delay=0.7)
+        await beat(f"👤 **{p1_name}** sends out **{c1_label_md}**!", md=True, delay=0.8)
+        await beat(f"👤 **{p2_name}** sends out **{c2_label_md}**!", md=True, delay=0.8)
+        await send_plain(battle_hud(c1_label_plain, champ1["hp"], champ1["max_hp"], c2_label_plain, champ2["hp"], champ2["max_hp"]))
+        await asyncio.sleep(0.9)
+
+        # Countdown
+        for t in ("3…", "2…", "1…", "GO!"):
+            await beat(t, md=False, delay=0.6)
+
         first = pick_first_attacker(int(champ1["spd"]), int(champ2["spd"]))
         starter_name = c1["display"] if first == 0 else c2["display"]
-        lines.append(f"🏁 **{starter_name}** moves first!")
-        await edit_battle(msg, lines, ROUND_BREAK_DELAY)
-    
+        await beat(f"🏁 **{starter_name}** moves first!", md=True, delay=0.9)
+
         round_counter = 1
         dmg1_total = 0
         dmg2_total = 0
-    
+
         while champ1["hp"] > 0 and champ2["hp"] > 0 and round_counter <= 30:
-            lines.append("")
-            lines.append(f"━━━ **Round {round_counter}** ━━━")
-            await edit_battle(msg, lines, ROUND_BREAK_DELAY)
-    
+            await beat(f"━━━ **Round {round_counter}** ━━━", md=True, delay=0.7)
+
             turn_order = [0, 1] if first == 0 else [1, 0]
-    
             for who in turn_order:
                 if champ1["hp"] <= 0 or champ2["hp"] <= 0:
                     break
-    
+
                 attacker = champ1 if who == 0 else champ2
                 defender = champ2 if who == 0 else champ1
                 a_key = c1_key if who == 0 else c2_key
                 d_key = c2_key if who == 0 else c1_key
                 a_lvl = lv1 if who == 0 else lv2
-    
+
                 a_name = champ_from_key(a_key)["display"]
-    
-                # Burn tick at start of turn
+
+                # Burn / poison etc tick at start of turn
                 tick = status_tick_lines(attacker, a_name)
                 if tick:
-                    lines.extend(tick)
-                    await edit_battle(msg, lines, STATUS_TICK_DELAY)
+                    for line in tick:
+                        await beat(line, md=True, delay=0.75)
                     if attacker["hp"] <= 0:
                         break
-    
+
                 ok, sleep_lines = can_act(attacker)
                 if not ok:
-                    lines.append(f"{STATUS_EMOJI['sleep']} **{a_name}** {sleep_lines[0]}")
-                    await edit_battle(msg, lines, ACTION_DELAY)
+                    await beat(f"{STATUS_EMOJI['sleep']} **{a_name}** {sleep_lines[0]}", md=True, delay=0.9)
                 else:
                     move = choose_move(a_key)
                     before_hp = defender["hp"]
                     out = do_move(attacker, defender, a_key, d_key, a_lvl, move)
-                    lines.extend(out)
-    
+
+                    # Send each outcome line individually
+                    for line in out:
+                        await beat(line, md=True, delay=0.75)
+
                     dealt = max(0, before_hp - defender["hp"])
                     if who == 0:
                         dmg1_total += dealt
                     else:
                         dmg2_total += dealt
-    
-                    h1 = f"{hp_bar(champ1['hp'], champ1['max_hp'])} {max(champ1['hp'],0)}/{champ1['max_hp']}"
-                    h2 = f"{hp_bar(champ2['hp'], champ2['max_hp'])} {max(champ2['hp'],0)}/{champ2['max_hp']}"
-                    lines.append(f"❤️ **{c1_label}:** {h1}")
-                    lines.append(f"💙 **{c2_label}:** {h2}")
-    
-                    await edit_battle(msg, lines, ACTION_DELAY)
-    
+
+                    # HUD after each action (readable, compact)
+                    await send_plain(
+                        battle_hud(
+                            c1_label_plain, max(champ1["hp"], 0), champ1["max_hp"],
+                            c2_label_plain, max(champ2["hp"], 0), champ2["max_hp"],
+                        )
+                    )
+                    await asyncio.sleep(0.9)
+
             if champ1["hp"] > 0 and champ2["hp"] > 0 and random.random() < 0.12:
-                lines.append("The tension rises…")
-                await edit_battle(msg, lines, ROUND_BREAK_DELAY)
-    
+                await beat("The tension rises…", md=False, delay=0.8)
+
             round_counter += 1
-    
+
         # Determine winner
         if champ1["hp"] > 0 and champ2["hp"] <= 0:
             winner, loser = user, opponent
+            w_name, l_name = p1_name, p2_name
+            w_champ = c1["display"]
         elif champ2["hp"] > 0 and champ1["hp"] <= 0:
             winner, loser = opponent, user
+            w_name, l_name = p2_name, p1_name
+            w_champ = c2["display"]
         else:
-            winner = user if champ1["hp"] >= champ2["hp"] else opponent
-            loser = opponent if winner == user else user
-    
-        players[winner]["wins"] = players[winner].get("wins", 0) + 1
-        players[loser]["losses"] = players[loser].get("losses", 0) + 1
-    
-        base_rounds = max(1, round_counter - 1)
-        w_dmg = dmg1_total if winner == user else dmg2_total
-        l_dmg = dmg2_total if loser == user else dmg1_total
-    
-        xp_w = int(50 + base_rounds * 4 + w_dmg * 0.06)
-        xp_l = int(28 + base_rounds * 3 + l_dmg * 0.05)
-    
-        win_levelups = grant_xp_with_hp_adjust(winner, xp_w)
-        lose_levelups = grant_xp_with_hp_adjust(loser, xp_l)
-    
-        # Persist remaining HP back to players (this is the key game rule)
-        if user == winner:
-            set_current_hp(user, champ1["hp"])  # winner's champ1 is user
-            set_current_hp(opponent, champ2["hp"])
-        else:
-            set_current_hp(user, champ1["hp"])
-            set_current_hp(opponent, champ2["hp"])
-    
-        save_players(players)
-    
-        lines.append("")
-        lines.append("The dust settles…")
-        await edit_battle(msg, lines, END_DELAY)
-    
-        w_name = display_name(winner, "Winner")
-        w_champ = champ_from_key(players[winner]["champ"])["display"]
-        lines.append(f"🏆 **Winner: {w_name}** with **{w_champ}**!")
-        lines.append(f"🎁 XP: **{xp_w}** (Winner) / **{xp_l}** (Loser)")
-        lines.append("")
-    
-        # Show persistent HP result snapshot (after XP/level changes)
-        u1_hp = get_or_init_current_hp(user)
-        u2_hp = get_or_init_current_hp(opponent)
-        lv1_after = int(players[user].get("level", 1))
-        lv2_after = int(players[opponent].get("level", 1))
-        max1_after = get_stats(c1_key, lv1_after)["hp"]
-        max2_after = get_stats(c2_key, lv2_after)["hp"]
-        lines.append("📌 **Persistent HP saved**")
-        lines.append(f"❤️ {c1['display']}: **{u1_hp}/{max1_after}**")
-        lines.append(f"💙 {c2['display']}: **{u2_hp}/{max2_after}**")
-    
-        await edit_battle(msg, lines, END_DELAY)
-    
-        if win_levelups or lose_levelups:
-            lines.append("")
-            lines.append("📣 **Level Up!**")
-            lines.extend(win_levelups)
-            lines.extend(lose_levelups)
-            await edit_battle(msg, lines, LEVELUP_DELAY)
-    
-        ACTIVE_BATTLES.discard(chat_id)
-    
+            # Timeout: higher total damage wins
+            if dmg1_total >= dmg2_total:
+                winner, loser = user, opponent
+                w_name, l_name = p1_name, p2_name
+                w_champ = c1["display"]
+            else:
+                winner, loser = opponent, user
+                w_name, l_name = p2_name, p1_name
+                w_champ = c2["display"]
 
-    except Exception as e:
-        # Fail-safe: unlock the chat and show a readable error
-        try:
-            await context.bot.send_message(chat_id=chat_id, text=f"⚠️ Battle error: {type(e).__name__}. Please try again.")
-        except Exception:
-            pass
+        await beat("The dust settles…", md=False, delay=0.9)
+        await beat(f"🏆 **Winner: {w_name}** with **{w_champ}**!", md=True, delay=0.9)
+
+        # XP + Leveling (keep existing helper logic)
+        xp_w, xp_l = award_battle_xp(winner, loser)
+        await beat(f"🎁 XP: **{xp_w}** (Winner) / **{xp_l}** (Loser)", md=True, delay=0.8)
+
+        # Persist HP
+        set_current_hp(user, int(max(champ1["hp"], 0)))
+        set_current_hp(opponent, int(max(champ2["hp"], 0)))
+        save_players()
+
+        max1_after = int(get_stats(c1_key, int(players[user].get("level", 1)))["hp"])
+        max2_after = int(get_stats(c2_key, int(players[opponent].get("level", 1)))["hp"])
+
+        await beat("📌 **Persistent HP saved**", md=True, delay=0.4)
+        await beat(f"❤️ {c1['display']}: **{max(champ1['hp'],0)}/{max1_after}**", md=True, delay=0.4)
+        await beat(f"💙 {c2['display']}: **{max(champ2['hp'],0)}/{max2_after}**", md=True, delay=0.6)
+
+        # Level up announcements (if any)
+        lvlups = []
+        if players[user].get("just_leveled"):
+            lvlups.append((p1_name, players[user]["level"]))
+            players[user]["just_leveled"] = False
+        if players[opponent].get("just_leveled"):
+            lvlups.append((p2_name, players[opponent]["level"]))
+            players[opponent]["just_leveled"] = False
+        if lvlups:
+            await beat("📣 **Level Up!**", md=True, delay=0.5)
+            for n, lv in lvlups:
+                await beat(f"⭐ **{n}** is now **Lv.{lv}**!", md=True, delay=0.6)
+
+        save_players()
+
     finally:
         ACTIVE_BATTLES.discard(chat_id)
-async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = await _bootstrap_user(update)
-    chat_id = update.effective_chat.id if update.effective_chat else 0
-
-    if players[user].get("champ") not in CHAMPS:
-        await update.message.reply_text("You must choose a champ first: /start")
-        return
-
-    _remember_chat(user, chat_id)
-
-    eligible = [uid for uid in _eligible_players_in_chat(chat_id) if uid != user]
-    if not eligible:
-        await update.message.reply_text("No opponents in this chat yet. Ask someone to /choose first!")
-        return
-
-    # If exactly 1 opponent in this chat, start immediately
-    if len(eligible) == 1:
-        await _run_battle(chat_id, user, eligible[0], context)
-        return
-
-    # More than 2 players in chat: require a challenge + accept
-    target = _parse_target_user_id(update, context)
-    if not target or target == user or target not in eligible:
-        await update.message.reply_text(
-            "This chat has multiple players. Challenge someone first:\n"
-            "• Reply to a user's message with /fight\n"
-            "• Or use /fight @Name (best-effort)"
-        )
-        return
-
-    key = (chat_id, user)
-    PENDING_CHALLENGES[key] = {"target": target}
-    challenger_name = display_name(user, "Challenger")
-    target_name = display_name(target, "Opponent")
-    kb = InlineKeyboardMarkup(
-        [[
-            InlineKeyboardButton("✅ Accept", callback_data=f"suimon_accept|{chat_id}|{user}"),
-            InlineKeyboardButton("❌ Decline", callback_data=f"suimon_decline|{chat_id}|{user}"),
-        ]]
-    )
-    await update.message.reply_text(
-        f"⚔️ **{challenger_name}** challenges **{target_name}** to a battle!\n"
-        f"{target_name}, do you accept?",
-        parse_mode="Markdown",
-        reply_markup=kb,
-    )
-
-
-async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    if not q or not q.data:
-        return
-    await q.answer()
-
-    try:
-        action, chat_id_s, challenger_id = q.data.split("|", 2)
-        chat_id = int(chat_id_s)
-    except Exception:
-        return
-
-    key = (chat_id, challenger_id)
-    pending = PENDING_CHALLENGES.get(key)
-    if not pending:
-        await q.edit_message_text("This challenge is no longer available.")
-        return
-
-    target_id = str(pending.get("target"))
-    clicker_id = str(q.from_user.id)
-
-    if clicker_id != target_id:
-        await q.answer("Only the challenged player can respond.", show_alert=True)
-        return
-
-    if action == "suimon_decline":
-        PENDING_CHALLENGES.pop(key, None)
-        await q.edit_message_text("❌ Challenge declined.")
-        return
-
-    if action == "suimon_accept":
-        PENDING_CHALLENGES.pop(key, None)
-        await q.edit_message_text("✅ Challenge accepted! Starting battle…")
-        await _run_battle(chat_id, challenger_id, target_id, context)
-        return
-
 
 # =========================
 # MAIN
