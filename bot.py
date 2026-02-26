@@ -20,7 +20,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
 TZ = timezone.utc  # UTC for all daily resets
 
@@ -895,13 +895,13 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
     if p1_cur_hp <= 0:
         ACTIVE_BATTLES.discard(chat_id)
         await send_md(
-            f"❌ **{p1_name}**'s **{c1['display']}** has fainted (HP 0). Use /heal first."
+            f"❌ **{p1_name}**'s **{c1_label}** has fainted (HP 0). Use /heal first."
         )
         return
     if p2_cur_hp <= 0:
         ACTIVE_BATTLES.discard(chat_id)
         await send_md(
-            f"❌ **{p2_name}**'s **{c2['display']}** has fainted (HP 0). They must /heal first."
+            f"❌ **{p2_name}**'s **{c2_label}** has fainted (HP 0). They must /heal first."
         )
         return
 
@@ -925,15 +925,21 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
     }
 
     lines: List[str] = []
+    # Escape names for Markdown and label champs by trainer (important when both pick the same champ)
+    p1_disp = md_escape(p1_name)
+    p2_disp = md_escape(p2_name)
+    c1_label = f"{p1_disp}'s {c1['display']}"
+    c2_label = f"{p2_disp}'s {c2['display']}"
+
     lines.append("⚔️ **BATTLE START** ⚔️")
-    lines.append(f"👤 **{p1_name}** sent out **{c1['display']}**!  (Lv.{lv1})")
-    lines.append(f"👤 **{p2_name}** sent out **{c2['display']}**!  (Lv.{lv2})")
+    lines.append(f"👤 **{p1_disp}** sent out **{c1_label}**!  (Lv.{lv1})")
+    lines.append(f"👤 **{p2_disp}** sent out **{c2_label}**!  (Lv.{lv2})")
     lines.append("")
-    lines.append(f"❤️ {c1['display']}: **{champ1['hp']}/{champ1['max_hp']}**")
-    lines.append(f"💙 {c2['display']}: **{champ2['hp']}/{champ2['max_hp']}**")
+    lines.append(format_hp_line(c1_label, champ1['hp'], champ1['max_hp']))
+    lines.append(format_hp_line(c2_label, champ2['hp'], champ2['max_hp']))
     lines.append("")
     lines.append("…")
-    msg = msg = await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="Markdown")
+    msg = await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="Markdown")
 
     await asyncio.sleep(INTRO_DELAY)
 
