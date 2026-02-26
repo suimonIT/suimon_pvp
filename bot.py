@@ -14,12 +14,12 @@ DATA_FILE = "players.json"
 # Pacing / Animation
 # -------------------------
 # Make fights clearly readable (slower = more dramatic)
-INTRO_DELAY = 2.2
+INTRO_DELAY = 3.0
 COUNTDOWN_STEP_DELAY = 1.2
-ACTION_DELAY = 2.4
-ROUND_BREAK_DELAY = 1.8
+ACTION_DELAY = 4.0
+ROUND_BREAK_DELAY = 3.0
 MOMENTUM_DELAY = 1.6
-LEVELUP_DELAY = 1.8
+LEVELUP_DELAY = 1
 
 # Keep Telegram message length manageable
 MAX_LINES_SHOWN = 55
