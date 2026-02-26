@@ -1172,8 +1172,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target = _parse_target_user_id(update, context)
     if not target or target not in eligible:
         await update.message.reply_text(
-            "Multiple opponents found.
-"
+            "Multiple opponents found.\n"
             "Reply to a player's message with /fight, or use /fight @Name."
         )
         return
