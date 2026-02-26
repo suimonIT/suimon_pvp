@@ -2,8 +2,7 @@ import random
 import json
 import os
 import asyncio
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 from telegram import (
@@ -21,9 +20,9 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
-TZ = ZoneInfo("Europe/Berlin")
+TZ = timezone.utc  # UTC for all daily resets
 
 # In-memory session state (resets if the bot restarts)
 PENDING_CHALLENGES: Dict[Tuple[int, str], Dict] = {}
@@ -611,7 +610,7 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "",
         "You are a Trainer. Your champ fights for you — **players do not attack directly**.",
         "",
-        "━━━ **1) Pick your Starter** ━━",
+        "━━━ **1) Pick your Starter** ━━━",
         "Choose **ONE** champ (permanent):",
         "• /choose basaurimon  — 🌿 Nature",
         "• /choose suimander   — 🔥 Fire",
@@ -620,35 +619,37 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Type chart:",
         "🔥 Fire > 🌿 Nature > 💧 Water > 🔥 Fire",
         "",
-        "━━ **2) Your Champ Has Persistent HP** ━━",
+        "━━━ **2) Your Champ Has Persistent HP** ━━━",
         "After every battle, your champ keeps its **remaining HP**.",
         "If your HP reaches **0**, your champ **faints** and cannot battle until healed.",
         "",
-        "━━ **3) Daily Healing Item: Suiballs** ━━━",
+        "━━━ **3) Daily Healing Item: Suiballs** ━━━",
         f"Every day you receive **{DAILY_SUIBALLS} Suiball** (max {SUIBALL_CAP} stored).",
         "Use one to heal your champ to full:",
         "• /heal",
         "Check your items:",
         "• /inventory",
         "",
-        "━━ **4) How to start a battle** ━━━",
-        "• You must challenge someone:",
+        "━━━ **4) Battles in Groups** ━━━",
+        "• If the group has **exactly 2 eligible players**, /fight starts instantly.",
+        "• If there are **3+ players**, you must challenge someone:",
         "   – Reply to their message with /fight",
         "   – Or /fight @Name (best-effort)",
         "Then the opponent must **Accept**.",
         "",
-        "━━ **5) Battle System (Classic Feel)** ━━━",
+        "━━━ **5) Battle System (Classic Feel)** ━━━",
         "• Speed influences who moves first",
         "• Accuracy & Misses",
         "• Critical hits",
         "• Status effects: **Burn** (damage over time) and **Sleep** (skip turns)",
+        "• Pokémon-style effectiveness text",
         "",
-        "━━ **6) Progression** ━━━",
-        "Win or lose, you gain XP. Winner get's ofc more!",
+        "━━━ **6) Progression** ━━━",
+        "Win or lose, you gain XP.",
         "Level-ups increase your stats (including Max HP).",
         "",
-        "━━ **Commands** ━━━",
-        "• /choose *monster name* — select a monster to start",
+        "━━━ **Commands** ━━━",
+        "• /start — quick start",
         "• /intro — this tutorial",
         "• /champs — view champ info",
         "• /profile — your trainer card",
@@ -656,7 +657,7 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /heal — spend 1 Suiball to heal",
         "• /fight — battle!",
         "",
-        "✨ Info: You have feedback? Contact @IceFlurryX or @abiclighter.",
+        "✨ Tip: The battle text speed can be tuned via the DELAY constants at the top of the file.",
     ]
 
     # If user hasn't picked, add a friendly note.
@@ -802,7 +803,7 @@ async def inventory(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🎒 **Inventory**\n\n"
         f"🧿 Suiballs: **{balls}**\n"
-        f"📅 Daily refresh: **{today_str()}** (Europe/Berlin)\n\n"
+        f"📅 Daily refresh: **{today_str()}** (UTC)\n\n"
         "Suiballs heal your active champ to full HP:\n"
         "• /heal\n\n"
         f"Active champ: **{champ_txt}**",
@@ -854,9 +855,17 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # BATTLE ENGINE
 # =========================
 
-async def _run_battle(chat_id: int, user: str, opponent: str, update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTypes.DEFAULT_TYPE):
+
+    # NOTE: do not rely on Update.message here (callback queries don't have it consistently).
+    async def send_plain(text: str) -> None:
+        await context.bot.send_message(chat_id=chat_id, text=text)
+
+    async def send_md(text: str) -> None:
+        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+
     if chat_id in ACTIVE_BATTLES:
-        await update.message.reply_text("⚠️ A battle is already running in this chat. Please wait.")
+        await send_plain("⚠️ A battle is already running in this chat. Please wait.")
         return
     ACTIVE_BATTLES.add(chat_id)
 
@@ -885,16 +894,14 @@ async def _run_battle(chat_id: int, user: str, opponent: str, update: Update, co
     # If either champ is fainted, don't start
     if p1_cur_hp <= 0:
         ACTIVE_BATTLES.discard(chat_id)
-        await update.message.reply_text(
-            f"❌ **{p1_name}**'s **{c1['display']}** has fainted (HP 0). Use /heal first.",
-            parse_mode="Markdown",
+        await send_md(
+            f"❌ **{p1_name}**'s **{c1['display']}** has fainted (HP 0). Use /heal first."
         )
         return
     if p2_cur_hp <= 0:
         ACTIVE_BATTLES.discard(chat_id)
-        await update.message.reply_text(
-            f"❌ **{p2_name}**'s **{c2['display']}** has fainted (HP 0). They must /heal first.",
-            parse_mode="Markdown",
+        await send_md(
+            f"❌ **{p2_name}**'s **{c2['display']}** has fainted (HP 0). They must /heal first."
         )
         return
 
@@ -926,7 +933,7 @@ async def _run_battle(chat_id: int, user: str, opponent: str, update: Update, co
     lines.append(f"💙 {c2['display']}: **{champ2['hp']}/{champ2['max_hp']}**")
     lines.append("")
     lines.append("…")
-    msg = await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    msg = msg = await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="Markdown")
 
     await asyncio.sleep(INTRO_DELAY)
 
@@ -1082,7 +1089,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # If exactly 1 opponent in this chat, start immediately
     if len(eligible) == 1:
-        await _run_battle(chat_id, user, eligible[0], update, context)
+        await _run_battle(chat_id, user, eligible[0], context)
         return
 
     # More than 2 players in chat: require a challenge + accept
@@ -1146,8 +1153,7 @@ async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if action == "suimon_accept":
         PENDING_CHALLENGES.pop(key, None)
         await q.edit_message_text("✅ Challenge accepted! Starting battle…")
-        update.message = q.message
-        await _run_battle(chat_id, challenger_id, target_id, update, context)
+        await _run_battle(chat_id, challenger_id, target_id, context)
         return
 
 
