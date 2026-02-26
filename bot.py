@@ -10,7 +10,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
 
 # -------------------------
@@ -48,9 +48,21 @@ CHAMPS: Dict[str, Dict] = {
                 "power": 40,
                 "acc": 0.95,
                 "text": [
-                    "schlägt with **Vine Whip** zu!",
-                    "whips its vines: **Vine Whip**!",
-                    "sends out **Vine Whip** ein!",
+                    "lashes out with **Vine Whip**!",
+                    "snaps its vines: **Vine Whip**!",
+                    "whips the air — **Vine Whip**!",
+                ],
+            },
+            {
+                "name": "Razor Leaf",
+                "kind": "damage_highcrit",
+                "power": 46,
+                "acc": 0.92,
+                "crit_bonus": 0.08,
+                "text": [
+                    "fires spinning blades: **Razor Leaf**!",
+                    "scatters sharp leaves — **Razor Leaf**!",
+                    "cuts the field with **Razor Leaf**!",
                 ],
             },
             {
@@ -61,6 +73,7 @@ CHAMPS: Dict[str, Dict] = {
                 "text": [
                     "unleashes **Leaf Storm** — razor leaves slice the air!",
                     "summons a vortex: **Leaf Storm**!",
+                    "calls down a tempest: **Leaf Storm**!",
                 ],
             },
             {
@@ -72,17 +85,7 @@ CHAMPS: Dict[str, Dict] = {
                 "text": [
                     "scatters **Sleep Spore**… eyelids grow heavy.",
                     "swirls **Sleep Spore** across the arena!",
-                ],
-            },
-            {
-                "name": "Synthesis",
-                "kind": "heal",
-                "power": 0,
-                "acc": 1.0,
-                "heal_pct": 0.22,
-                "text": [
-                    "nutzt **Synthesis** und sammelt Sonnenenergie!",
-                    "sends out **Synthesis** ein — grüne Energie flackert auf!",
+                    "releases a cloud — **Sleep Spore**!",
                 ],
             },
         ],
@@ -101,8 +104,9 @@ CHAMPS: Dict[str, Dict] = {
                 "acc": 0.95,
                 "burn_chance": 0.30,
                 "text": [
-                    "spuckt Funken: **Ember**!",
-                    "sends out **Ember** ein — die Luft knistert!",
+                    "spits sparks: **Ember**!",
+                    "launches crackling flames — **Ember**!",
+                    "lets embers rain down: **Ember**!",
                 ],
             },
             {
@@ -111,19 +115,9 @@ CHAMPS: Dict[str, Dict] = {
                 "power": 55,
                 "acc": 0.90,
                 "text": [
-                    "schleudert **Flamethrower** — eine Feuerlanze!",
-                    "sends out **Flamethrower** ein!",
-                ],
-            },
-            {
-                "name": "Fire Sprint",
-                "kind": "buff_spd",
-                "power": 0,
-                "acc": 1.0,
-                "stages": 1,
-                "text": [
-                    "zündet **Fire Sprint** — schneller als der Blick!",
-                    "nutzt **Fire Sprint** und bekommt Tempo!",
+                    "blasts a roaring stream: **Flamethrower**!",
+                    "turns up the heat — **Flamethrower**!",
+                    "scorches the arena with **Flamethrower**!",
                 ],
             },
             {
@@ -133,8 +127,20 @@ CHAMPS: Dict[str, Dict] = {
                 "acc": 0.92,
                 "crit_bonus": 0.10,
                 "text": [
-                    "reißt with **Inferno Claw** durch die Verteidigung!",
-                    "sends out **Inferno Claw** ein — glühende Krallen!",
+                    "slashes with **Inferno Claw** — glowing talons!",
+                    "rips through the air: **Inferno Claw**!",
+                    "carves a fiery arc — **Inferno Claw**!",
+                ],
+            },
+            {
+                "name": "Fire Fang",
+                "kind": "damage",
+                "power": 44,
+                "acc": 0.94,
+                "text": [
+                    "bites in with **Fire Fang**!",
+                    "lunges forward — **Fire Fang**!",
+                    "snaps its jaws: **Fire Fang**!",
                 ],
             },
         ],
@@ -152,8 +158,31 @@ CHAMPS: Dict[str, Dict] = {
                 "power": 40,
                 "acc": 0.96,
                 "text": [
-                    "schießt **Water Gun**!",
-                    "sends out **Water Gun** ein — Wasser prasselt!",
+                    "fires **Water Gun**!",
+                    "blasts a jet — **Water Gun**!",
+                    "sprays hard: **Water Gun**!",
+                ],
+            },
+            {
+                "name": "Bubble Beam",
+                "kind": "damage",
+                "power": 46,
+                "acc": 0.93,
+                "text": [
+                    "releases shimmering bubbles: **Bubble Beam**!",
+                    "floods the field with **Bubble Beam**!",
+                    "bubbles burst everywhere — **Bubble Beam**!",
+                ],
+            },
+            {
+                "name": "Aqua Tail",
+                "kind": "damage",
+                "power": 52,
+                "acc": 0.88,
+                "text": [
+                    "swings a crashing **Aqua Tail**!",
+                    "spins and strikes — **Aqua Tail**!",
+                    "whips up water: **Aqua Tail**!",
                 ],
             },
             {
@@ -162,30 +191,9 @@ CHAMPS: Dict[str, Dict] = {
                 "power": 60,
                 "acc": 0.82,
                 "text": [
-                    "lädt Druck auf… **Hydro Burst**!",
-                    "sends out **Hydro Burst** ein — eine Wasserwucht!",
-                ],
-            },
-            {
-                "name": "Shell Wall",
-                "kind": "buff_def",
-                "power": 0,
-                "acc": 1.0,
-                "stages": 1,
-                "text": [
-                    "braces itself: **Shell Wall**!",
-                    "nutzt **Shell Wall** — die Verteidigung steigt!",
-                ],
-            },
-            {
-                "name": "Healing Spring",
-                "kind": "heal",
-                "power": 0,
-                "acc": 1.0,
-                "heal_pct": 0.18,
-                "text": [
-                    "ruft eine **Healing Spring** — Wasser glitzert beruhigend!",
-                    "sends out **Healing Spring** ein und regeneriert!",
+                    "builds pressure… **Hydro Burst**!",
+                    "unleashes a cannon-blast: **Hydro Burst**!",
+                    "detonates a wave: **Hydro Burst**!",
                 ],
             },
         ],
