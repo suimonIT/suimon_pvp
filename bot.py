@@ -1194,8 +1194,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(
-        f"⚔️ **{challenger_name}** challenges **{target_name}**!
-"
+        f"⚔️ **{challenger_name}** challenges **{target_name}**!"
         f"{target_name}, do you accept?",
         reply_markup=kb,
         parse_mode="Markdown",
