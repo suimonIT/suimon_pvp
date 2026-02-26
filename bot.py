@@ -20,7 +20,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
 TZ = timezone.utc  # UTC for all daily resets
 
@@ -268,6 +268,16 @@ def display_name(player_id: str, fallback: str = "Player") -> str:
     p = players.get(player_id, {})
     return p.get("name") or fallback
 
+
+
+def md_escape(s: str) -> str:
+    """Escape basic Markdown special chars for parse_mode='Markdown'."""
+    if s is None:
+        return ""
+    # Escape characters that can break Markdown formatting
+    for ch in ["_", "*", "`", "[", "]"]:
+        s = s.replace(ch, f"\\{ch}")
+    return s
 
 def hp_bar(current: int, max_hp: int, length: int = 12) -> str:
     """Colored HP bar using emoji blocks.
@@ -613,17 +623,25 @@ async def countdown_animation(msg, lines: List[str]) -> None:
 # =========================
 
 async def _bootstrap_user(update: Update) -> str:
+    """Ensure the user exists, apply daily grant, and remember the chat."""
+    global players
+    # Always reload from disk so callbacks/commands share the latest state.
+    players = load_players()
+
     user_id = str(update.effective_user.id)
     tg_name = (update.effective_user.first_name or "Player").strip()
     ensure_player(user_id, tg_name)
+
+    # Track which chats this user is active in (important for /fight opponent discovery)
+    if update.effective_chat:
+        _remember_chat(user_id, int(update.effective_chat.id))
+
     granted = ensure_daily(user_id)
     if granted and update.message:
-        # Small, non-spammy: only notify when they haven't chosen yet OR when they used /inventory
-        # (We keep it silent on most commands.)
+        # Keep daily grant silent by default to avoid spam
         pass
     save_players(players)
     return user_id
-
 
 async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await _bootstrap_user(update)
@@ -883,6 +901,7 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
 
     # Load the latest player data for this battle run.
     # (Accept callbacks don't share a `players` variable, so relying on one causes NameError.)
+    global players
     players = load_players()
 
     # NOTE: do not rely on Update.message here (callback queries don't have it consistently).
