@@ -657,7 +657,7 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /heal — spend 1 Suiball to heal",
         "• /fight — battle!",
         "",
-        "✨ Tip: The battle text speed can be tuned via the DELAY constants at the top of the file.",
+        "✨ Tip: Facing issues? Contact @IceFlurryX or @abiclighter",
     ]
 
     # If user hasn't picked, add a friendly note.
