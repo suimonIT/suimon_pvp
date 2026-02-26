@@ -20,7 +20,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
 TZ = timezone.utc  # UTC for all daily resets
 
@@ -32,14 +32,14 @@ ACTIVE_BATTLES: set[int] = set()
 # Text pacing (seconds)
 # Raise values to slow down
 # -------------------------
-INTRO_DELAY = 3.0
-TEASER_DELAY = 1.6
-COUNTDOWN_STEP_DELAY = 1.8
-ACTION_DELAY = 3.0
-ROUND_BREAK_DELAY = 2.2
-STATUS_TICK_DELAY = 2.0
-LEVELUP_DELAY = 2.2
-END_DELAY = 2.0
+INTRO_DELAY = 0.8
+TEASER_DELAY = 0.6
+COUNTDOWN_STEP_DELAY = 0.55
+ACTION_DELAY = 0.7
+ROUND_BREAK_DELAY = 0.6
+STATUS_TICK_DELAY = 0.5
+LEVELUP_DELAY = 0.8
+END_DELAY = 0.8
 
 # Keep Telegram message length manageable (old lines are trimmed)
 MAX_LINES_SHOWN = 80
@@ -291,18 +291,12 @@ def format_hp_line(label: str, current: int, max_hp: int) -> str:
     """Plain (non-markdown) HP line for HUD blocks."""
     mx = max(1, int(max_hp))
     cur = max(0, min(int(current), mx))
-    return f"{label}
-HP {cur:>3}/{mx:<3} [{hp_bar(cur, mx)}]"
+    return f"{label}\nHP {cur:>3}/{mx:<3} [{hp_bar(cur, mx)}]"
 
 
 def battle_hud(p1_label: str, hp1: int, max1: int, p2_label: str, hp2: int, max2: int) -> str:
-    """Monospace HUD card."""
-    return "```text
-" + format_hp_line(p1_label, hp1, max1) + "
-
-" + format_hp_line(p2_label, hp2, max2) + "
-```"
-
+    """Monospace HUD card (caller wraps it in a code block)."""
+    return format_hp_line(p1_label, hp1, max1) + "\n\n" + format_hp_line(p2_label, hp2, max2)
 
 def xp_needed(level: int) -> int:
     # Fast early, slower later
@@ -893,33 +887,55 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 
 async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTypes.DEFAULT_TYPE):
-    """Runs a full battle with paced, message-by-message narration (no giant edited wall)."""
+    """Runs a full battle with cinematic pacing.
+
+    IMPORTANT: Telegram handlers must not block too long.
+    We therefore stream the fight into ONE message (edit updates),
+    with small delays, instead of sending hundreds of messages.
+    """
 
     # Load latest player data (callbacks don't share locals)
     global players
     players = load_players()
 
-    async def send_plain(text: str) -> None:
-        await context.bot.send_message(chat_id=chat_id, text=text)
+    # ---- Streaming fight log into a single message (prevents TimeOut / flood) ----
+    log_lines: List[str] = []
 
-    async def send_md(text: str) -> None:
-        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+    async def ensure_log_message() -> int:
+        """Create the fight log message and return message_id."""
+        msg = await context.bot.send_message(chat_id=chat_id, text="⚔️ SUIMON BATTLE")
+        return msg.message_id
 
-    async def beat(text: str, *, md: bool = False, delay: float = 0.75) -> None:
-        """Send 1 line, then wait a bit (cinematic pacing)."""
-        if md:
-            await send_md(text)
-        else:
-            await send_plain(text)
+    async def flush(message_id: int) -> None:
+        """Edit the log message with the latest buffered lines."""
+        # Trim to keep below Telegram limits
+        trimmed = log_lines[-MAX_LINES_SHOWN:]
+        body = "\n".join(trimmed) if trimmed else "…"
+        await context.bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=body, parse_mode="Markdown")
+
+    async def push(message_id: int, line: str, *, delay: float = 0.45) -> None:
+        """Append one line, edit message, then wait a bit."""
+        log_lines.append(line)
+        await flush(message_id)
+        if delay > 0:
+            await asyncio.sleep(delay)
+
+    async def push_block(message_id: int, block_text: str, *, delay: float = 0.55) -> None:
+        """Append a monospace block (for HUD) and update."""
+        # Markdown code block for readability
+        log_lines.append(f"```\n{block_text}\n```")
+        await flush(message_id)
         if delay > 0:
             await asyncio.sleep(delay)
 
     if chat_id in ACTIVE_BATTLES:
-        await send_plain("⚠️ A battle is already running in this chat. Please wait.")
+
+        await push(message_id, "⚠️ A battle is already running in this chat. Please wait.")
         return
 
     ACTIVE_BATTLES.add(chat_id)
     try:
+        message_id = await ensure_log_message()
         p1 = players[user]
         p2 = players[opponent]
 
@@ -947,10 +963,10 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
         p2_cur_hp = get_or_init_current_hp(opponent)
 
         if p1_cur_hp <= 0:
-            await send_md(f"❌ **{p1_name}**'s **{c1['display']}** has fainted (HP 0). Use /heal first.")
+            await push(message_id, f"❌ **{p1_name}**'s **{c1['display']}** has fainted (HP 0). Use /heal first.")
             return
         if p2_cur_hp <= 0:
-            await send_md(f"❌ **{p2_name}**'s **{c2['display']}** has fainted (HP 0). They must /heal first.")
+            await push(message_id, f"❌ **{p2_name}**'s **{c2['display']}** has fainted (HP 0). They must /heal first.")
             return
 
         champ1 = {"hp": int(p1_cur_hp), "max_hp": s1["hp"], "atk": s1["atk"], "def": s1["def"], "spd": s1["spd"], "burn_turns": 0, "sleep_turns": 0}
@@ -963,26 +979,27 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
         c2_label_plain = f"{p2_name_raw} - {c2['display']} (Lv.{lv2})"
 
         # Intro (line by line)
-        await beat("⚔️ **BATTLE START** ⚔️", md=True, delay=0.7)
-        await beat(f"👤 **{p1_name}** sends out **{c1_label_md}**!", md=True, delay=0.8)
-        await beat(f"👤 **{p2_name}** sends out **{c2_label_md}**!", md=True, delay=0.8)
-        await send_plain(battle_hud(c1_label_plain, champ1["hp"], champ1["max_hp"], c2_label_plain, champ2["hp"], champ2["max_hp"]))
-        await asyncio.sleep(0.9)
+        await push(message_id, "⚔️ **BATTLE START** ⚔️", delay=0.45)
+        await push(message_id, f"👤 **{p1_name}** sends out **{c1_label_md}**!", delay=0.55)
+        await push(message_id, f"👤 **{p2_name}** sends out **{c2_label_md}**!", delay=0.55)
+        await push_block(message_id, battle_hud(c1_label_plain, champ1["hp"], champ1["max_hp"], c2_label_plain, champ2["hp"], champ2["max_hp"]))
+        
 
         # Countdown
         for t in ("3…", "2…", "1…", "GO!"):
-            await beat(t, md=False, delay=0.6)
+            await push(message_id, t, delay=COUNTDOWN_STEP_DELAY)
 
         first = pick_first_attacker(int(champ1["spd"]), int(champ2["spd"]))
         starter_name = c1["display"] if first == 0 else c2["display"]
-        await beat(f"🏁 **{starter_name}** moves first!", md=True, delay=0.9)
+        await push(message_id, f"🏁 **{starter_name}** moves first!", delay=0.65)
 
         round_counter = 1
+        MAX_ROUNDS = 20
         dmg1_total = 0
         dmg2_total = 0
 
         while champ1["hp"] > 0 and champ2["hp"] > 0 and round_counter <= 30:
-            await beat(f"━━━ **Round {round_counter}** ━━━", md=True, delay=0.7)
+            await push(message_id, f"━━━ **Round {round_counter}** ━━━", delay=0.7)
 
             turn_order = [0, 1] if first == 0 else [1, 0]
             for who in turn_order:
@@ -1001,13 +1018,13 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
                 tick = status_tick_lines(attacker, a_name)
                 if tick:
                     for line in tick:
-                        await beat(line, md=True, delay=0.75)
+                        await push(message_id, line, delay=0.75)
                     if attacker["hp"] <= 0:
                         break
 
                 ok, sleep_lines = can_act(attacker)
                 if not ok:
-                    await beat(f"{STATUS_EMOJI['sleep']} **{a_name}** {sleep_lines[0]}", md=True, delay=0.9)
+                    await push(message_id, f"{STATUS_EMOJI['sleep']} **{a_name}** {sleep_lines[0]}", delay=0.9)
                 else:
                     move = choose_move(a_key)
                     before_hp = defender["hp"]
@@ -1015,7 +1032,7 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
 
                     # Send each outcome line individually
                     for line in out:
-                        await beat(line, md=True, delay=0.75)
+                        await push(message_id, line, delay=0.75)
 
                     dealt = max(0, before_hp - defender["hp"])
                     if who == 0:
@@ -1024,18 +1041,21 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
                         dmg2_total += dealt
 
                     # HUD after each action (readable, compact)
-                    await send_plain(
+                    await push(message_id, 
                         battle_hud(
                             c1_label_plain, max(champ1["hp"], 0), champ1["max_hp"],
                             c2_label_plain, max(champ2["hp"], 0), champ2["max_hp"],
                         )
                     )
-                    await asyncio.sleep(0.9)
+                    
 
             if champ1["hp"] > 0 and champ2["hp"] > 0 and random.random() < 0.12:
-                await beat("The tension rises…", md=False, delay=0.8)
+                await push(message_id, "The tension rises…", delay=0.8)
 
             round_counter += 1
+            if round_counter > MAX_ROUNDS:
+                await push(message_id, "⏳ Battle took too long — it ends in a draw.", delay=0.6)
+                break
 
         # Determine winner
         if champ1["hp"] > 0 and champ2["hp"] <= 0:
@@ -1057,12 +1077,12 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
                 w_name, l_name = p2_name, p1_name
                 w_champ = c2["display"]
 
-        await beat("The dust settles…", md=False, delay=0.9)
-        await beat(f"🏆 **Winner: {w_name}** with **{w_champ}**!", md=True, delay=0.9)
+        await push(message_id, "The dust settles…", delay=0.9)
+        await push(message_id, f"🏆 **Winner: {w_name}** with **{w_champ}**!", delay=0.9)
 
         # XP + Leveling (keep existing helper logic)
         xp_w, xp_l = award_battle_xp(winner, loser)
-        await beat(f"🎁 XP: **{xp_w}** (Winner) / **{xp_l}** (Loser)", md=True, delay=0.8)
+        await push(message_id, f"🎁 XP: **{xp_w}** (Winner) / **{xp_l}** (Loser)", delay=0.8)
 
         # Persist HP
         set_current_hp(user, int(max(champ1["hp"], 0)))
@@ -1072,9 +1092,9 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
         max1_after = int(get_stats(c1_key, int(players[user].get("level", 1)))["hp"])
         max2_after = int(get_stats(c2_key, int(players[opponent].get("level", 1)))["hp"])
 
-        await beat("📌 **Persistent HP saved**", md=True, delay=0.4)
-        await beat(f"❤️ {c1['display']}: **{max(champ1['hp'],0)}/{max1_after}**", md=True, delay=0.4)
-        await beat(f"💙 {c2['display']}: **{max(champ2['hp'],0)}/{max2_after}**", md=True, delay=0.6)
+        await push(message_id, "📌 **Persistent HP saved**", delay=0.4)
+        await push(message_id, f"❤️ {c1['display']}: **{max(champ1['hp'],0)}/{max1_after}**", delay=0.4)
+        await push(message_id, f"💙 {c2['display']}: **{max(champ2['hp'],0)}/{max2_after}**", delay=0.6)
 
         # Level up announcements (if any)
         lvlups = []
@@ -1085,9 +1105,9 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
             lvlups.append((p2_name, players[opponent]["level"]))
             players[opponent]["just_leveled"] = False
         if lvlups:
-            await beat("📣 **Level Up!**", md=True, delay=0.5)
+            await push(message_id, "📣 **Level Up!**", delay=0.5)
             for n, lv in lvlups:
-                await beat(f"⭐ **{n}** is now **Lv.{lv}**!", md=True, delay=0.6)
+                await push(message_id, f"⭐ **{n}** is now **Lv.{lv}**!", delay=0.6)
 
         save_players()
 
