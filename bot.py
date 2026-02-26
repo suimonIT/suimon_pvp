@@ -21,7 +21,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 DATA_FILE = "players.json"
 TZ = ZoneInfo("Europe/Berlin")
 
