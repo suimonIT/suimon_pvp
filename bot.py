@@ -20,7 +20,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
+TOKEN = "YOUR_BOT_TOKEN"
 DATA_FILE = "players.json"
 TZ = timezone.utc  # UTC for all daily resets
 
@@ -681,7 +681,7 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• /heal — spend 1 Suiball to heal",
         "• /fight — battle!",
         "",
-        "✨ Support: @IceFlurryX / @abiclighter",
+        "✨ Tip: The battle text speed can be tuned via the DELAY constants at the top of the file.",
     ]
 
     # If user hasn't picked, add a friendly note.
@@ -880,6 +880,10 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 
 async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTypes.DEFAULT_TYPE):
+
+    # Load the latest player data for this battle run.
+    # (Accept callbacks don't share a `players` variable, so relying on one causes NameError.)
+    players = load_players()
 
     # NOTE: do not rely on Update.message here (callback queries don't have it consistently).
     async def send_plain(text: str) -> None:
