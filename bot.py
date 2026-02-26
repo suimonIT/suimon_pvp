@@ -2,6 +2,7 @@ import random
 import json
 import os
 import asyncio
+import html
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -448,7 +449,7 @@ async def _safe_edit(bot, chat_id: int, message_id: int, text: str) -> None:
         text = text[-MAX_MESSAGE_CHARS:]
     for _ in range(5):
         try:
-            await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text)
+            await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, parse_mode='HTML', disable_web_page_preview=True)
             return
         except RetryAfter as e:
             await asyncio.sleep(float(getattr(e, "retry_after", 1.5)))
@@ -687,20 +688,56 @@ async def _run_battle(chat_id: int, user: str, opponent: str, context: ContextTy
         message_id = msg.message_id
 
         log_lines: List[str] = []
+        last_edit_at: float = 0.0
 
-        async def flush(delay: float = 0.0) -> None:
-            body = _trim_lines_to_fit(log_lines)
+        def esc(s: str) -> str:
+            return html.escape(s, quote=False)
+
+        def make_hud(c1_label: str, hp1: int, max1: int, c2_label: str, hp2: int, max2: int) -> str:
+            hud_txt = battle_hud(c1_label, hp1, max1, c2_label, hp2, max2)
+            return f"<pre>{html.escape(hud_txt, quote=False)}</pre>"
+
+        def render() -> str:
+            # Keep last N blocks, always valid HTML (each HUD is a self-contained <pre>..</pre>)
+            if len(log_lines) > MAX_LINES_SHOWN:
+                del log_lines[:-MAX_LINES_SHOWN]
+            body = "\n".join(log_lines) if log_lines else "…"
+            # Trim by chars
+            while len(body) > MAX_MESSAGE_CHARS and len(log_lines) > 8:
+                del log_lines[:3]
+                body = "\n".join(log_lines)
+            if len(body) > MAX_MESSAGE_CHARS:
+                body = body[-MAX_MESSAGE_CHARS:]
+            return body
+
+        async def flush(delay: float = 0.0, force: bool = False) -> None:
+            nonlocal last_edit_at
+            # throttle edits a bit to reduce Telegram lag spikes
+            now = asyncio.get_running_loop().time()
+            if not force:
+                min_gap = 0.55
+                wait = (last_edit_at + min_gap) - now
+                if wait > 0:
+                    await asyncio.sleep(wait)
+
+            body = render()
             await _safe_edit(context.bot, chat_id, message_id, body)
+            last_edit_at = asyncio.get_running_loop().time()
+
             if delay > 0:
                 await asyncio.sleep(delay)
 
         async def push(line: str, delay: float = ACTION_DELAY) -> None:
-            log_lines.append(line)
+            # narrative line
+            log_lines.append(esc(line))
+            await flush(delay)
+
+        async def push_blank(delay: float = 0.0) -> None:
+            log_lines.append("")
             await flush(delay)
 
         async def push_hud(c1_label: str, hp1: int, max1: int, c2_label: str, hp2: int, max2: int, delay: float = HUD_DELAY) -> None:
-            hud = battle_hud(c1_label, hp1, max1, c2_label, hp2, max2)
-            log_lines.append(hud)
+            log_lines.append(make_hud(c1_label, hp1, max1, c2_label, hp2, max2))
             await flush(delay)
 
         if user not in players or opponent not in players:
