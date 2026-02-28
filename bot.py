@@ -587,10 +587,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text(
         "🔥 Welcome to Suimon Arena!\n\n"
-        "Pick your permanent starter:\n"
-        "/choose basaurimon\n"
-        "/choose suimander\n"
-        "/choose suiqrtle\n\n"
+        "• Pick a starter via Menu → 📜 Champs:\n"
+        "• Use /fight @Username to request a fight\n"
+        "• Battles are turn-based now: pick your move via buttons\n"
+        "• HP is persistent; heal with /heal\n"
         "Or open /intro for the full guide.\n",
         reply_markup=main_menu_kb()
     )
