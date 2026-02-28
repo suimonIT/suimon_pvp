@@ -456,6 +456,15 @@ def main_menu_kb() -> InlineKeyboardMarkup:
          InlineKeyboardButton("ℹ️ Intro", callback_data="menu|intro")],
     ])
 
+def choose_champ_kb() -> InlineKeyboardMarkup:
+    # Menu that lets users pick their starter without typing /choose
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🌿 Basaurimon", callback_data="choose|basaurimon")],
+        [InlineKeyboardButton("🔥 Suimander", callback_data="choose|suimander")],
+        [InlineKeyboardButton("💧 Suiqrtle", callback_data="choose|suiqrtle")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="menu|intro")],
+    ])
+
 # =========================
 # MESSAGE EDIT STREAM (anti-freeze)
 # =========================
@@ -594,16 +603,15 @@ async def champs_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"{TYPE_EMOJI[c['type']]} {c['display']}  — type: {c['type']}")
         lines.append(f"   Moves: {moves}")
         lines.append("")
-    lines.append("Choose with: /choose basaurimon | suimander | suiqrtle")
     if update.message:
-        await update.message.reply_text("\n".join(lines), reply_markup=main_menu_kb())
+        await update.message.reply_text("\n".join(lines), reply_markup=choose_champ_kb())
 
 async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await _bootstrap_user(update)
     if not update.message:
         return
     if not context.args:
-        await update.message.reply_text("Usage: /choose basaurimon | suimander | suiqrtle", reply_markup=main_menu_kb())
+        await update.message.reply_text("Choose your starter via Menu → 📜 Champs.", reply_markup=main_menu_kb())
         return
     if players[user].get("champ") in CHAMPS:
         await update.message.reply_text("⚠️ You already chose a champ. This choice is permanent.", reply_markup=main_menu_kb())
@@ -1128,14 +1136,13 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append(f"{TYPE_EMOJI[c['type']]} {c['display']}  — type: {c['type']}")
             lines.append(f"   Moves: {moves}")
             lines.append("")
-        lines.append("Choose with: /choose basaurimon | suimander | suiqrtle")
-        await query.edit_message_text("\n".join(lines), reply_markup=main_menu_kb())
+        await query.edit_message_text("\n".join(lines), reply_markup=choose_champ_kb())
         return
 
     if action == "intro":
         await query.edit_message_text(
             "🎮 Suimon Arena\n\n"
-            "• Pick a starter with /choose\n"
+            "• Pick a starter via Menu → 📜 Champs\n"
             "• Use /fight in a group\n"
             "• Battles are turn-based now: pick your move via buttons\n"
             "• HP is persistent; heal with /heal\n\n"
@@ -1146,15 +1153,57 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if action == "fight":
         await query.edit_message_text(
-            "⚔️ To start a fight:\n\n"
-            "• If only 2 eligible players are in this chat: type /fight\n"
-            "• If 3+ players: reply to someone with /fight (or /fight @Name)\n\n"
-            "Battles will show move buttons on your turn.",
+            "⚔️ How to start a fight:\n\n"
+            "• Reply to a player with /fight\n"
+            "• Or type /fight @username\n\n"
+            "The challenged player must accept.\n"
+            "On your turn, choose moves with the buttons.",
             reply_markup=main_menu_kb()
         )
         return
 
     await query.edit_message_text("🧭 Menu", reply_markup=main_menu_kb())
+
+async def choose_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle starter selection from inline buttons."""
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+
+    user = await _bootstrap_user(update)
+    champ_key = query.data.split("|", 1)[1].strip() if query.data else ""
+
+    if champ_key not in CHAMPS:
+        await query.edit_message_text("Unknown champ.", reply_markup=main_menu_kb())
+        return
+
+    if players[user].get("champ") in CHAMPS:
+        c = champ_from_key(players[user]["champ"])
+        await query.edit_message_text(
+            f"⚠️ You already chose {c['display']}. This choice is permanent.",
+            reply_markup=main_menu_kb()
+        )
+        return
+
+    # Apply choice (same as /choose)
+    players[user]["champ"] = champ_key
+    players[user]["level"] = 1
+    players[user]["xp"] = 0
+    players[user]["wins"] = 0
+    players[user]["losses"] = 0
+    set_current_hp(user, get_stats(champ_key, 1)["hp"])
+    players[user]["suiballs"] = max(int(players[user].get("suiballs", 0)), 1)
+    save_players(players)
+
+    c = champ_from_key(champ_key)
+    await query.edit_message_text(
+        f"✅ You chose {c['display']}! {TYPE_EMOJI[c['type']]}" + "\n"
+        "You received 1 Suiball. Use /heal when needed." + "\n\n"
+        "Next: challenge someone with /fight, or open /menu.",
+        reply_markup=main_menu_kb()
+    )
+
 
 async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1291,6 +1340,7 @@ def main():
     app.add_handler(CommandHandler("fight", fight))
 
     app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu\|"))
+    app.add_handler(CallbackQueryHandler(choose_callback, pattern=r"^choose\|"))
     app.add_handler(CallbackQueryHandler(challenge_callback, pattern=r"^suimon_(accept|decline)\|"))
     app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff)\|"))
 
