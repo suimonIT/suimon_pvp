@@ -1192,8 +1192,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target = eligible[0]
     elif not target or target not in eligible:
         await update.message.reply_text(
-            "⚔️ Multiple opponents found.
-"
+            "⚔️ Multiple opponents found.\n"
             "Reply to a player's message with /fight, or use /fight @Name.",
             reply_markup=main_menu_kb(user)
         )
@@ -1211,11 +1210,8 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]])
 
     await update.message.reply_text(
-        f"⚔️ <b>{html.escape(challenger_name)}</b> challenges <b>{html.escape(target_name)}</b>!
-"
-        f"🧿 Champ: <b>{html.escape(challenger_champ)}</b>
-
-"
+        f"⚔️ <b>{html.escape(challenger_name)}</b> challenges <b>{html.escape(target_name)}</b>!\n"
+        f"🧿 Champ: <b>{html.escape(challenger_champ)}</b>\n\n"
         f"<b>{html.escape(target_name)}</b>, do you accept this fight request?",
         reply_markup=kb,
         parse_mode="HTML",
