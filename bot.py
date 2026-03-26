@@ -580,7 +580,7 @@ def choose_champ_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🌿 Basaurimon", callback_data="choose|basaurimon")],
         [InlineKeyboardButton("🔥 Suimander", callback_data="choose|suimander")],
         [InlineKeyboardButton("💧 Suiqrtle", callback_data="choose|suiqrtle")],
-        [InlineKeyboardButton("⬅️ Back", callback_data="menu")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="menu|home")],
     ])
 
 # =========================
@@ -1386,8 +1386,8 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if action not in {"champs", "namechamp"} and needs_nickname_prompt(user):
-        await query.edit_message_text(nickname_required_text(user), reply_markup=naming_prompt_kb())
+    if action not in {"champs", "namechamp", "home", ""} and needs_nickname_prompt(user_id):
+        await query.edit_message_text(nickname_required_text(user_id), reply_markup=naming_prompt_kb(), parse_mode="HTML")
         return
 
     if action == "champs":
@@ -1412,7 +1412,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    await query.edit_message_text("🧭 Menu", reply_markup=main_menu_kb(user))
+    await query.edit_message_text("🧭 Menu", reply_markup=main_menu_kb(user_id))
 
 async def choose_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle starter selection from inline buttons."""
@@ -1429,10 +1429,14 @@ async def choose_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if players[user].get("champ") in CHAMPS:
-        c = champ_from_key(players[user]["champ"])
+        current_champ_key = players[user]["champ"]
+        current_name = champ_full_name_for_player(user, current_champ_key)
         await query.edit_message_text(
-            f"⚠️ You already chose {c['display']}. This choice is permanent.",
-            reply_markup=main_menu_kb(user_id)
+            f"⚠️ You already chose {current_name}.\n\nThis choice is permanent, but you can rename your champ again below if you want.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✏️ Rename Champ", callback_data="menu|namechamp")],
+                [InlineKeyboardButton("⬅️ Back to Menu", callback_data="menu|home")],
+            ])
         )
         return
 
@@ -1598,7 +1602,7 @@ def main():
     app.add_handler(CommandHandler("heal", heal))
     app.add_handler(CommandHandler("fight", fight))
 
-    app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu\|"))
+    app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu(?:\|.*)?$"))
     app.add_handler(CallbackQueryHandler(choose_callback, pattern=r"^choose\|"))
     app.add_handler(CallbackQueryHandler(challenge_callback, pattern=r"^suimon_(accept|decline)\|"))
     app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff)\|"))
