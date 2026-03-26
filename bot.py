@@ -6,7 +6,7 @@ import html
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Any
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
 from telegram.error import BadRequest, RetryAfter, TimedOut, NetworkError
 from telegram.ext import (
     ApplicationBuilder,
@@ -229,7 +229,7 @@ def has_named_champ(player_id: str) -> bool:
     return p.get("champ") in CHAMPS and bool(get_champ_nickname(player_id))
 
 def naming_prompt_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton("✏️ Name Your Champ", callback_data="menu|namechamp")]])
+    return InlineKeyboardMarkup([[InlineKeyboardButton("✏️ Set Champ Name", callback_data="menu|namechamp")]])
 
 def nickname_required_text(player_id: str) -> str:
     p = players.get(player_id, {})
@@ -238,9 +238,11 @@ def nickname_required_text(player_id: str) -> str:
         return "Choose your champ first with /choose or Menu → 📜 Champs."
     base_name = champ_from_key(champ_key)["display"]
     return (
-        f"✏️ You picked {base_name}, but now you must name your champ before you can continue.\n\n"
-        "Tap the button below, then reply to that message with your champ's name.\n"
-        "Example: Blaze"
+        "📝 <b>Name required</b>\n\n"
+        f"Your starter is <b>{base_name}</b>, but it still has no custom name.\n\n"
+        "Before you can fight or use the full menu, you must name it.\n"
+        "Tap <b>Set Champ Name</b> below, then reply with the name you want.\n\n"
+        "Example: <i>Memo</i>"
     )
 
 def start_nickname_prompt(player_id: str) -> None:
@@ -645,7 +647,7 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _bootstrap_user(update)
     if not update.message:
         return
-    await update.message.reply_text("🧭 Menu", reply_markup=main_menu_kb(user))
+    await update.message.reply_text("🧭 Menu", reply_markup=main_menu_kb(user_id))
 
 async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await _bootstrap_user(update)
@@ -697,7 +699,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"✅ You chose {champ_full_name_for_player(user, champ_key)} ({TYPE_EMOJI[champ['type']]} {champ['type'].upper()}).\n"
             f"❤️ HP: {cur}/{mx}\n\n"
             "Open the menu below:",
-            reply_markup=main_menu_kb(user)
+            reply_markup=main_menu_kb(user_id)
         )
         save_players(players)
         return
@@ -747,16 +749,19 @@ async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     start_nickname_prompt(user)
     c = champ_from_key(champ_key)
     await update.message.reply_text(
-        f"✅ You chose {c['display']}! {TYPE_EMOJI[c['type']]}\n"
-        "You received 1 Suiball. Use /heal when needed.\n\n"
-        "Now name your champ before anything else.",
-        reply_markup=naming_prompt_kb()
+        f"🎉 <b>{c['display']}</b> joined your team {TYPE_EMOJI[c['type']]}\n\n"
+        "🧿 You received <b>1 Suiball</b>.\n"
+        "🚫 Before anything else, you must give your champ a custom name.\n\n"
+        "Tap the button below, then reply with the name you want.\n"
+        "Example: <i>Memo</i>",
+        reply_markup=naming_prompt_kb(),
+        parse_mode='HTML'
     )
 
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await _bootstrap_user(update)
     if update.message and needs_nickname_prompt(user):
-        await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb())
+        await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb(), parse_mode="HTML")
         return
     if not update.message:
         return
@@ -805,9 +810,12 @@ async def nickname(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not raw:
         start_nickname_prompt(user)
         await update.message.reply_text(
-            "✏️ Reply to this message with your champ's name.\n"
-            f"Current champ: {current}\n"
-            "Example: Blaze"
+            "📝 <b>Name your champ</b>\n\n"
+            f"Current champ: <b>{html.escape(current)}</b>\n\n"
+            "Reply with the name you want to use.\n"
+            "Example: <i>Memo</i>",
+            parse_mode='HTML',
+            reply_markup=ForceReply(selective=True, input_field_placeholder="Enter your champ name...")
         )
         return
 
@@ -823,9 +831,10 @@ async def nickname(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     base_name = champ_from_key(champ_key)["display"]
     await update.message.reply_text(
-        f"✅ Your {base_name} is now named {nick}!\n"
-        f"Battle display: {nick} vs ...",
-        reply_markup=main_menu_kb(user)
+        f"✅ <b>{base_name}</b> is now named <b>{html.escape(nick)}</b>!\n\n"
+        f"Battle display: <b>{html.escape(nick)}</b> vs ...",
+        reply_markup=main_menu_kb(user),
+        parse_mode='HTML'
     )
 
 async def nickname_text_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -841,8 +850,8 @@ async def nickname_text_reply(update: Update, context: ContextTypes.DEFAULT_TYPE
     if len(nick) < 2:
         start_nickname_prompt(user)
         await update.message.reply_text(
-            "That name is too short. Reply with 2 to 18 letters or numbers.",
-            reply_markup=naming_prompt_kb()
+            "❌ That name is too short. Reply with 2 to 18 letters or numbers.",
+            reply_markup=ForceReply(selective=True, input_field_placeholder="Try another champ name...")
         )
         return
 
@@ -857,15 +866,16 @@ async def nickname_text_reply(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     base_name = champ_from_key(champ_key)["display"]
     await update.message.reply_text(
-        f"✅ Your {base_name} is now named {nick}!\n"
-        f"Battle display: {nick} vs ...",
-        reply_markup=main_menu_kb(user)
+        f"✅ <b>{base_name}</b> is now named <b>{html.escape(nick)}</b>!\n\n"
+        f"Battle display: <b>{html.escape(nick)}</b> vs ...",
+        reply_markup=main_menu_kb(user),
+        parse_mode='HTML'
     )
 
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await _bootstrap_user(update)
     if update.message and needs_nickname_prompt(user):
-        await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb())
+        await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb(), parse_mode="HTML")
         return
     if not update.message:
         return
@@ -888,7 +898,7 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def inventory(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await _bootstrap_user(update)
     if update.message and needs_nickname_prompt(user):
-        await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb())
+        await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb(), parse_mode="HTML")
         return
     if not update.message:
         return
@@ -909,7 +919,7 @@ async def inventory(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await _bootstrap_user(update)
     if update.message and needs_nickname_prompt(user):
-        await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb())
+        await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb(), parse_mode="HTML")
         return
     if not update.message:
         return
@@ -928,7 +938,7 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if balls <= 0:
         await update.message.reply_text(
             f"❌ You have no Suiballs.\nYou get {DAILY_SUIBALLS} per day (cap {SUIBALL_CAP}).\nUse /inventory.",
-            reply_markup=main_menu_kb(user)
+            reply_markup=main_menu_kb(user_id)
         )
         return
     p["suiballs"] = balls - 1
@@ -1172,7 +1182,7 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
 async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await _bootstrap_user(update)
     if update.message and needs_nickname_prompt(user):
-        await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb())
+        await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb(), parse_mode="HTML")
         return
     chat = update.effective_chat
     if not chat or not update.message:
@@ -1197,7 +1207,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Multiple opponents found.\n"
             "Reply to a player's message with /fight, or use /fight @Name.",
-            reply_markup=main_menu_kb(user)
+            reply_markup=main_menu_kb(user_id)
         )
         return
 
@@ -1282,7 +1292,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         p = players[user_id]
         champ_key = p.get("champ")
         if champ_key not in CHAMPS:
-            await query.edit_message_text("You have no champ yet. Use /start", reply_markup=main_menu_kb(user))
+            await query.edit_message_text("You have no champ yet. Use /start", reply_markup=main_menu_kb(user_id))
             return
         champ = champ_from_key(champ_key)
         lv = int(p.get("level", 1))
@@ -1298,12 +1308,12 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🪪 Trainer Card\n\n"
             f"👤 {display_name(user_id)}\n"
             f"🏅 Record: {w}W / {l}L\n\n"
-            f"{TYPE_EMOJI[champ['type']]} {champ['display']} (Lv.{lv}){fainted}\n"
+            f"{TYPE_EMOJI[champ['type']]} {champ_full_name_for_player(user_id, champ_key)} (Lv.{lv}){fainted}\n"
             f"❤️ HP: {cur_hp}/{stats['hp']} ({hp_bar(cur_hp, stats['hp'])})\n"
             f"✨ XP: {xp}/{need}\n"
             f"📈 Stats: ATK {stats['atk']} | DEF {stats['def']} | SPD {stats['spd']}\n\n"
             f"🎒 Suiballs: {balls} (daily +{DAILY_SUIBALLS}, cap {SUIBALL_CAP})",
-            reply_markup=main_menu_kb(user),
+            reply_markup=main_menu_kb(user_id),
             parse_mode=None
         )
         return
@@ -1317,7 +1327,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             wins = int(p.get("wins", 0))
             losses = int(p.get("losses", 0))
             text += f"\n\nYour Rank: #{rank}\nLevel: {level} | XP: {xp} | Record: {wins}W/{losses}L"
-        await query.edit_message_text(text, reply_markup=main_menu_kb(user))
+        await query.edit_message_text(text, reply_markup=main_menu_kb(user_id))
         return
 
     if action == "inventory":
@@ -1332,7 +1342,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Suiballs heal your active champ to full HP:\n"
             "• /heal\n\n"
             f"Active champ: {champ_txt}",
-            reply_markup=main_menu_kb(user)
+            reply_markup=main_menu_kb(user_id)
         )
         return
 
@@ -1341,19 +1351,19 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         p = players[user_id]
         champ_key = p.get("champ")
         if champ_key not in CHAMPS:
-            await query.edit_message_text("You have no champ yet. Use /start", reply_markup=main_menu_kb(user))
+            await query.edit_message_text("You have no champ yet. Use /start", reply_markup=main_menu_kb(user_id))
             return
         lv = int(p.get("level", 1))
         mx = get_stats(champ_key, lv)["hp"]
         cur = get_or_init_current_hp(user_id)
         if cur >= mx:
-            await query.edit_message_text("✅ Your champ is already at full HP.", reply_markup=main_menu_kb(user))
+            await query.edit_message_text("✅ Your champ is already at full HP.", reply_markup=main_menu_kb(user_id))
             return
         balls = int(p.get("suiballs", 0))
         if balls <= 0:
             await query.edit_message_text(
                 f"❌ You have no Suiballs.\nYou get {DAILY_SUIBALLS} per day (cap {SUIBALL_CAP}).\nUse /inventory.",
-                reply_markup=main_menu_kb(user)
+                reply_markup=main_menu_kb(user_id)
             )
             return
         p["suiballs"] = balls - 1
@@ -1364,7 +1374,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🧿 Used 1 Suiball on {champ_full_name_for_player(user, champ_key)}!\n"
             f"❤️ HP restored: {mx}/{mx}\n"
             f"Remaining Suiballs: {p['suiballs']}",
-            reply_markup=main_menu_kb(user)
+            reply_markup=main_menu_kb(user_id)
         )
         return
 
@@ -1398,7 +1408,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• Or type /fight @username\n\n"
             "The challenged player must accept.\n"
             "On your turn, choose moves with the buttons.",
-            reply_markup=main_menu_kb(user)
+            reply_markup=main_menu_kb(user_id)
         )
         return
 
@@ -1422,7 +1432,7 @@ async def choose_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         c = champ_from_key(players[user]["champ"])
         await query.edit_message_text(
             f"⚠️ You already chose {c['display']}. This choice is permanent.",
-            reply_markup=main_menu_kb(user)
+            reply_markup=main_menu_kb(user_id)
         )
         return
 
@@ -1438,11 +1448,16 @@ async def choose_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_players(players)
 
     c = champ_from_key(champ_key)
+    start_nickname_prompt(user)
+    save_players(players)
     await query.edit_message_text(
-        f"✅ You chose {c['display']}! {TYPE_EMOJI[c['type']]}" + "\n"
-        "You received 1 Suiball. Use /heal when needed." + "\n\n"
-        "Next: challenge someone with /fight, or open /menu.",
-        reply_markup=main_menu_kb(user)
+        f"🎉 <b>{c['display']}</b> joined your team {TYPE_EMOJI[c['type']]}\n\n"
+        "🧿 You received <b>1 Suiball</b>.\n"
+        "🚫 You cannot fight yet. First you must give your champ a custom name.\n\n"
+        "Tap <b>Set Champ Name</b> below and reply with the name you want.\n"
+        "Example: <i>Memo</i>",
+        reply_markup=naming_prompt_kb(),
+        parse_mode='HTML'
     )
 
 
