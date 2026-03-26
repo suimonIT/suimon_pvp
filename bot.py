@@ -696,7 +696,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cur = get_or_init_current_hp(user)
         mx = get_stats(champ_key, lv)["hp"]
         await update.message.reply_text(
-            f"✅ You chose {champ_full_name_for_player(user, champ_key)} ({TYPE_EMOJI[champ['type']]} {champ['type'].upper()}).\n"
+            f"✅ You chose {champ_full_name_for_player(user_id, champ_key)} ({TYPE_EMOJI[champ['type']]} {champ['type'].upper()}).\n"
             f"❤️ HP: {cur}/{mx}\n\n"
             "Open the menu below:",
             reply_markup=main_menu_kb(user_id)
@@ -780,7 +780,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     l = int(p.get("losses", 0))
     balls = int(p.get("suiballs", 0))
     fainted = " (FAINTED)" if cur_hp <= 0 else ""
-    champ_label = champ_full_name_for_player(user, champ_key)
+    champ_label = champ_full_name_for_player(user_id, champ_key)
     await update.message.reply_text(
         "🪪 Trainer Card\n\n"
         f"👤 {display_name(user)}\n"
@@ -804,7 +804,7 @@ async def nickname(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Choose your champ first with /choose or Menu → 📜 Champs.", reply_markup=main_menu_kb(user))
         return
 
-    current = champ_full_name_for_player(user, champ_key)
+    current = champ_full_name_for_player(user_id, champ_key)
     raw = " ".join(context.args).strip()
 
     if not raw:
@@ -946,7 +946,7 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_players(players)
     champ = champ_from_key(champ_key)
     await update.message.reply_text(
-        f"🧿 Used 1 Suiball on {champ_full_name_for_player(user, champ_key)}!\n"
+        f"🧿 Used 1 Suiball on {champ_full_name_for_player(user_id, champ_key)}!\n"
         f"❤️ HP restored: {mx}/{mx}\n"
         f"Remaining Suiballs: {p['suiballs']}",
         reply_markup=main_menu_kb(user)
@@ -1371,7 +1371,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_players(players)
         champ = champ_from_key(champ_key)
         await query.edit_message_text(
-            f"🧿 Used 1 Suiball on {champ_full_name_for_player(user, champ_key)}!\n"
+            f"🧿 Used 1 Suiball on {champ_full_name_for_player(user_id, champ_key)}!\n"
             f"❤️ HP restored: {mx}/{mx}\n"
             f"Remaining Suiballs: {p['suiballs']}",
             reply_markup=main_menu_kb(user_id)
@@ -1379,11 +1379,27 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if action == "namechamp":
-        start_nickname_prompt(user)
-        await query.edit_message_text(
-            "✏️ Reply to this message with your champ's name.\n\nExample: Blaze",
-            reply_markup=naming_prompt_kb()
-        )
+        start_nickname_prompt(user_id)
+        try:
+            await query.edit_message_text(
+                "✏️ <b>Name your champ</b>
+
+"
+                "Reply to the next message with your champ's custom name.
+"
+                "Example: <i>Memo</i>",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Menu", callback_data="menu|home")]]),
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+        if query.message:
+            await query.message.reply_text(
+                "📝 Reply to this message with your champ's name.
+
+Example: Memo",
+                reply_markup=ForceReply(selective=True, input_field_placeholder="Enter your champ name...")
+            )
         return
 
     if action not in {"champs", "namechamp", "home", ""} and needs_nickname_prompt(user_id):
