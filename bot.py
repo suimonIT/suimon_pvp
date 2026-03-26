@@ -442,18 +442,63 @@ def _parse_target_user_id(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 return uid
     return None
 
+def get_leaderboard(limit: int = 10) -> List[Tuple[str, str, int, int, int, int]]:
+    ranked: List[Tuple[str, str, int, int, int, int]] = []
+    for uid, pdata in players.items():
+        if pdata.get("champ") not in CHAMPS:
+            continue
+        ranked.append((
+            uid,
+            display_name(uid),
+            int(pdata.get("xp", 0)),
+            int(pdata.get("level", 1)),
+            int(pdata.get("wins", 0)),
+            int(pdata.get("losses", 0)),
+        ))
+    ranked.sort(key=lambda row: (-row[2], -row[4], row[5], row[1].lower(), row[0]))
+    return ranked[:limit]
+
+
+def get_xp_and_rank(user_id: str) -> Tuple[int, Optional[int]]:
+    if user_id not in players or players[user_id].get("champ") not in CHAMPS:
+        return 0, None
+
+    user_xp = int(players[user_id].get("xp", 0))
+    better = 0
+    for uid, pdata in players.items():
+        if uid == user_id or pdata.get("champ") not in CHAMPS:
+            continue
+        other_xp = int(pdata.get("xp", 0))
+        if other_xp > user_xp:
+            better += 1
+    return user_xp, better + 1
+
+
+def build_leaderboard_text(limit: int = 10) -> str:
+    top_players = get_leaderboard(limit)
+    if not top_players:
+        return "🏆 Leaderboard\n\nNo trainers ranked yet. Pick a champ first."
+
+    lines = ["🏆 Leaderboard", ""]
+    for rank, (user_id, trainer_name, xp, level, wins, losses) in enumerate(top_players, 1):
+        lines.append(
+            f"{rank}. {trainer_name} — Lv.{level} | XP: {xp} | {wins}W/{losses}L"
+        )
+    return "\n".join(lines)
+
+
 # =========================
 # MENUS (INLINE BUTTONS)
 # =========================
 
 def main_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("⚔️ Fight", callback_data="menu|fight"),
+        [InlineKeyboardButton("📜 Champs", callback_data="menu|champs"),
+         InlineKeyboardButton("⚔️ Fight", callback_data="menu|fight")],
+        [InlineKeyboardButton("🏆 Leaderboard", callback_data="menu|leaderboard"),
          InlineKeyboardButton("🪪 Profile", callback_data="menu|profile")],
         [InlineKeyboardButton("🎒 Inventory", callback_data="menu|inventory"),
          InlineKeyboardButton("🩹 Heal", callback_data="menu|heal")],
-        [InlineKeyboardButton("📜 Champs", callback_data="menu|champs"),
-         InlineKeyboardButton("ℹ️ Intro", callback_data="menu|intro")],
     ])
 
 def choose_champ_kb() -> InlineKeyboardMarkup:
@@ -462,7 +507,7 @@ def choose_champ_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🌿 Basaurimon", callback_data="choose|basaurimon")],
         [InlineKeyboardButton("🔥 Suimander", callback_data="choose|suimander")],
         [InlineKeyboardButton("💧 Suiqrtle", callback_data="choose|suiqrtle")],
-        [InlineKeyboardButton("⬅️ Back", callback_data="menu|intro")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="menu")],
     ])
 
 # =========================
@@ -562,7 +607,7 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Battles are turn-based. On your turn, pick a move via buttons.",
         "",
         "━━━ Commands ━━━",
-        "/start /menu /intro /champs /choose /profile /inventory /heal /fight",
+        "/start /menu /intro /champs /choose /profile /leaderboard /inventory /heal /fight",
     ]
     if p.get("champ") not in CHAMPS:
         lines.insert(2, "⚠️ You haven't chosen a champ yet. Pick one with /choose.")
@@ -666,6 +711,26 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎒 Suiballs: {balls} (daily +{DAILY_SUIBALLS}, cap {SUIBALL_CAP})",
         reply_markup=main_menu_kb()
     )
+
+async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = await _bootstrap_user(update)
+    if not update.message:
+        return
+
+    xp, rank = get_xp_and_rank(user)
+    lines = [build_leaderboard_text(10)]
+
+    if rank is not None:
+        p = players[user]
+        level = int(p.get("level", 1))
+        wins = int(p.get("wins", 0))
+        losses = int(p.get("losses", 0))
+        lines.append(
+            f"\nYour Rank: #{rank}\nLevel: {level} | XP: {xp} | Record: {wins}W/{losses}L"
+        )
+
+    await update.message.reply_text("".join(lines), reply_markup=main_menu_kb())
+
 
 async def inventory(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await _bootstrap_user(update)
@@ -1081,6 +1146,18 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    if action == "leaderboard":
+        xp, rank = get_xp_and_rank(user_id)
+        text = build_leaderboard_text(10)
+        if rank is not None:
+            p = players[user_id]
+            level = int(p.get("level", 1))
+            wins = int(p.get("wins", 0))
+            losses = int(p.get("losses", 0))
+            text += f"\n\nYour Rank: #{rank}\nLevel: {level} | XP: {xp} | Record: {wins}W/{losses}L"
+        await query.edit_message_text(text, reply_markup=main_menu_kb())
+        return
+
     if action == "inventory":
         p = players[user_id]
         champ_key = p.get("champ")
@@ -1139,17 +1216,6 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("\n".join(lines), reply_markup=choose_champ_kb())
         return
 
-    if action == "intro":
-        await query.edit_message_text(
-            "🎮 Suimon Arena\n\n"
-            "• Pick a starter via Menu → 📜 Champs\n"
-            "• Use /fight in a group\n"
-            "• Battles are turn-based now: pick your move via buttons\n"
-            "• HP is persistent; heal with /heal\n\n"
-            "Tip: Use /fight as a reply to target someone in big groups.",
-            reply_markup=main_menu_kb()
-        )
-        return
 
     if action == "fight":
         await query.edit_message_text(
@@ -1335,6 +1401,7 @@ def main():
     app.add_handler(CommandHandler("champs", champs_cmd))
     app.add_handler(CommandHandler("choose", choose))
     app.add_handler(CommandHandler("profile", profile))
+    app.add_handler(CommandHandler("leaderboard", leaderboard))
     app.add_handler(CommandHandler("inventory", inventory))
     app.add_handler(CommandHandler("heal", heal))
     app.add_handler(CommandHandler("fight", fight))
