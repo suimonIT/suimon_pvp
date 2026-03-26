@@ -896,7 +896,7 @@ async def inventory(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     p = players[user]
     champ_key = p.get("champ")
-    champ_txt = "None" if champ_key not in CHAMPS else champ_full_name_for_player(user_id, champ_key)
+    champ_txt = "None" if champ_key not in CHAMPS else champ_full_name_for_player(user, champ_key)
     balls = int(p.get("suiballs", 0))
     await update.message.reply_text(
         "🎒 Inventory\n\n"
@@ -1325,7 +1325,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if action == "inventory":
         p = players[user_id]
         champ_key = p.get("champ")
-        champ_txt = "None" if champ_key not in CHAMPS else champ_full_name_for_player(user_id, champ_key)
+        champ_txt = "None" if champ_key not in CHAMPS else champ_full_name_for_player(user, champ_key)
         balls = int(p.get("suiballs", 0))
         await query.edit_message_text(
             "🎒 Inventory\n\n"
@@ -1380,7 +1380,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if action not in {"champs", "namechamp"} and needs_nickname_prompt(user_id):
-        await query.edit_message_text(nickname_required_text(user_id), reply_markup=naming_prompt_kb())
+        await query.edit_message_text(nickname_required_text(user_id), reply_markup=naming_prompt_kb(), parse_mode="HTML")
         return
 
     if action == "champs":
