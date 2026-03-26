@@ -5,7 +5,7 @@ import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN =("8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y")
 DATA_FILE = "players.json"
 
 CHAMPS = ["basaurimon", "suimander", "suiqrtle"]
