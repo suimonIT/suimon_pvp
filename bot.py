@@ -229,7 +229,7 @@ def has_named_champ(player_id: str) -> bool:
     return p.get("champ") in CHAMPS and bool(get_champ_nickname(player_id))
 
 def naming_prompt_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton("✏️ Set Champ Name", callback_data="menu|namechamp")]])
+    return InlineKeyboardMarkup([[InlineKeyboardButton("✏️ Set Champ Name", callback_data="menu|home")]])
 
 def nickname_required_text(player_id: str) -> str:
     p = players.get(player_id, {})
@@ -562,7 +562,7 @@ def build_leaderboard_text(limit: int = 10) -> str:
 def main_menu_kb(user_id: Optional[str] = None) -> InlineKeyboardMarkup:
     if user_id and needs_nickname_prompt(user_id):
         return InlineKeyboardMarkup([
-            [InlineKeyboardButton("✏️ Name Your Champ", callback_data="menu|namechamp")],
+            [InlineKeyboardButton("✏️ Set Name via /name", callback_data="menu|home")],
             [InlineKeyboardButton("📜 Champs", callback_data="menu|champs")],
         ])
     return InlineKeyboardMarkup([
@@ -704,7 +704,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_players(players)
         return
     await update.message.reply_text(
-        "🔥 Welcome to Suimon Arena!\n\n"
+        "🔥 <b>Welcome to Suimon Arena</b>
+
+━━━━━━━━━━━━━━━
+🎮 <b>How to start:</b>
+
+1️⃣ Menu → 📜 Champs
+   choose your starter
+
+2️⃣ Set your name:
+   /name YourName
+
+3️⃣ Fight players:
+   reply to a user with /fight
+
+━━━━━━━━━━━━━━━
+⚠️ Champ + Name required before fighting.
+\n\n"
         "• Pick a starter via Menu → 📜 Champs:\n"
         "• Use /fight @Username to request a fight\n"
         "• Battles are turn-based now: pick your move via buttons\n"
@@ -1445,7 +1461,7 @@ async def choose_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             f"⚠️ You already chose {current_name}.\n\nThis choice is permanent, but you can rename your champ again below if you want.",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("✏️ Rename Champ", callback_data="menu|namechamp")],
+                [InlineKeyboardButton("✏️ Rename Champ", callback_data="menu|home")],
                 [InlineKeyboardButton("⬅️ Back to Menu", callback_data="menu|home")],
             ])
         )
