@@ -1382,11 +1382,8 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         start_nickname_prompt(user_id)
         try:
             await query.edit_message_text(
-                "✏️ <b>Name your champ</b>
-
-"
-                "Reply to the next message with your champ's custom name.
-"
+                "✏️ <b>Name your champ</b>\n\n"
+                "Reply to the next message with your champ's custom name.\n"
                 "Example: <i>Memo</i>",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Menu", callback_data="menu|home")]]),
                 parse_mode="HTML"
@@ -1395,9 +1392,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         if query.message:
             await query.message.reply_text(
-                "📝 Reply to this message with your champ's name.
-
-Example: Memo",
+                "📝 Reply to this message with your champ's name.\n\nExample: Memo",
                 reply_markup=ForceReply(selective=True, input_field_placeholder="Enter your champ name...")
             )
         return
