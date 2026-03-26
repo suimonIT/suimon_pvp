@@ -1187,14 +1187,13 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No opponents in this chat yet. Ask someone to pick and name their champ first!", reply_markup=main_menu_kb(user))
         return
 
-    if len(eligible) == 1:
-        await _start_battle(chat_id, user, eligible[0], context)
-        return
-
     target = _parse_target_user_id(update, context)
-    if not target or target not in eligible:
+    if len(eligible) == 1:
+        target = eligible[0]
+    elif not target or target not in eligible:
         await update.message.reply_text(
-            "Multiple opponents found.\n"
+            "⚔️ Multiple opponents found.
+"
             "Reply to a player's message with /fight, or use /fight @Name.",
             reply_markup=main_menu_kb(user)
         )
@@ -1204,6 +1203,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     challenger_name = display_name(user, "Challenger")
     target_name = display_name(target, "Opponent")
+    challenger_champ = champ_display_for_player(user, players[user].get("champ"))
 
     kb = InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ Accept", callback_data=f"suimon_accept|{user}"),
@@ -1211,9 +1211,14 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]])
 
     await update.message.reply_text(
-        f"⚔️ {challenger_name} challenges {target_name}!\n"
-        f"{target_name}, do you accept?",
+        f"⚔️ <b>{html.escape(challenger_name)}</b> challenges <b>{html.escape(target_name)}</b>!
+"
+        f"🧿 Champ: <b>{html.escape(challenger_champ)}</b>
+
+"
+        f"<b>{html.escape(target_name)}</b>, do you accept this fight request?",
         reply_markup=kb,
+        parse_mode="HTML",
     )
 
 async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1254,7 +1259,7 @@ async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await query.edit_message_text("Invalid action.")
         return
 
-    await query.edit_message_text("✅ Accepted! Battle starting…")
+    await query.edit_message_text("✅ Fight request accepted. Battle starting…")
     await _start_battle(chat_id, str(challenger), opponent, context)
 
 # =========================
