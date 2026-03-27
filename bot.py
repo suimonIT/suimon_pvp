@@ -215,13 +215,14 @@ def fancy_menu_caption(user_id: str) -> str:
     if champ_key not in CHAMPS:
         return (
             f"{title}\n\n"
-            "🔥 <b>Welcome to Suimon Arena</b>\n"
-            "Pick your starter, name it and begin your climb.\n\n"
+            "🔥 <b>Welcome to Suimon Arena[BETA]</b>\n"
+            "Trainers! Pick your starter, name it and begin your climb.\n\n"
             "✨ <b>Start here</b>\n"
             "• Open <b>📜 Champs</b>\n"
             "• Pick your starter\n"
             "• Name it with <code>/name YourName</code>\n"
             "• Challenge players with <code>/fight</code>"
+            "• Use /intro for full guide."
         )
 
     level = int(p.get("level", 1))
@@ -791,13 +792,13 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = await _bootstrap_user(update)
     p = players[user]
     lines = [
-        "🎮 <b>Welcome to Suimon Arena</b>",
+        "🎮 <b>Welcome to Suimon Arena[BETA]</b>",
         "",
         "A turn based Telegram PvP game where every trainer controls one starter, levels it up and keeps its HP between battles.",
         "",
         "━━━ How to play ━━━",
         "1. Open Menu → <b>📜 Champs</b> and pick your permanent starter.",
-        "2. Name your champ with <b>/name YourName</b>.",
+        "2. Name your champ with <b>/name YourName</b> or reply to the message.",
         "3. Challenge someone with <b>/fight</b> or <b>/fight @Name</b>.",
         "4. In battle, choose moves with the inline buttons.",
         "",
@@ -807,7 +808,6 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Your champ keeps its remaining HP after every fight.",
         "• If HP reaches 0, heal first with <b>/heal</b>.",
         f"• You receive {DAILY_SUIBALLS} Suiball per day (cap {SUIBALL_CAP}).",
-        "• In groups with many players, fights can require an accept/decline step.",
         "",
         "━━━ Commands ━━━",
         "/start /menu /intro /champs /choose /name /profile /rankings /inventory /heal /fight",
@@ -948,7 +948,7 @@ async def nickname(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"✅ <b>{base_name}</b> is now named <b>{html.escape(nick)}</b>!\n\n"
         f"🎉 <b>{html.escape(nick)}</b> joined your team {champ_emoji}\n"
-        "🧿 You received <b>1 Suiball</b>.\n\n"
+        "🧿 You received <b>2 Suiballs</b>.\n\n"
         f"Battle display: <b>{html.escape(nick)}</b> vs ...",
         reply_markup=main_menu_kb(user),
         parse_mode="HTML"
@@ -983,7 +983,7 @@ async def nickname_text_reply(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text(
         f"✅ <b>{base_name}</b> is now named <b>{html.escape(nick)}</b>!\n\n"
         f"🎉 <b>{html.escape(nick)}</b> joined your team {champ_emoji}\n"
-        "🧿 You received <b>1 Suiball</b>.\n\n"
+        "🧿 You received <b>2 Suiballs</b>.\n\n"
         f"You can now fight with <b>{html.escape(nick)}</b>.",
         reply_markup=main_menu_kb(user),
         parse_mode='HTML'
