@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Any
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply, ChatMember
 from telegram.error import BadRequest, RetryAfter, TimedOut, NetworkError
 from telegram.ext import (
     ApplicationBuilder,
@@ -27,6 +27,9 @@ TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
 ALLOWED_GROUP_IDS = {-1003407035529, -1003839722848}
+# Only these user IDs + the Telegram group owner can use privileged admin commands
+# Replace 123456789 with your own Telegram user ID
+PRIVILEGED_USER_IDS = {123456789}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
 
 # In-memory session state (resets if the bot restarts)
@@ -189,6 +192,50 @@ async def ensure_allowed_chat(update: Update, context: Optional[ContextTypes.DEF
         except Exception:
             pass
     return False
+
+
+async def is_privileged_user(bot, chat_id: int, user_id: int) -> bool:
+    if user_id in PRIVILEGED_USER_IDS:
+        return True
+    try:
+        member = await bot.get_chat_member(chat_id, user_id)
+        return member.status == ChatMember.OWNER
+    except Exception:
+        return False
+
+
+def _parse_target_from_args(chat_id: int, args: List[str]) -> Tuple[Optional[str], int]:
+    if not args:
+        return None, 1
+
+    first = args[0].strip()
+    if not first:
+        return None, 1
+
+    if first.isdigit():
+        return first, 1
+
+    lookup = first.lstrip('@').lower().replace(' ', '')
+    for uid, pdata in players.items():
+        if chat_id not in pdata.get('chats', []):
+            continue
+        username = str(pdata.get('username') or '').lower().lstrip('@')
+        name = str(pdata.get('name') or '').lower().replace(' ', '')
+        if lookup and (lookup == username or lookup == name):
+            return uid, 1
+
+    return None, 1
+
+
+def _parse_target_and_amount(chat_id: int, args: List[str]) -> Tuple[Optional[str], Optional[int]]:
+    target, consumed = _parse_target_from_args(chat_id, args)
+    amount: Optional[int] = None
+    if len(args) > consumed:
+        try:
+            amount = int(args[consumed])
+        except Exception:
+            amount = None
+    return target, amount
 
 
 async def send_menu_photo(message, caption: str, reply_markup: InlineKeyboardMarkup) -> None:
@@ -572,7 +619,7 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
         eff_txt = " 🫧 Not very effective…"
 
     crit_txt = " CRIT!" if crit else ""
-    out.append(f"💢 Hit: {dmg} damage{crit_txt}{eff_txt}")
+    out.append(f"💢 Hit: <b>{dmg} damage</b>{crit_txt}{eff_txt}")
 
     if kind == "damage_burn":
         if defender.get("burn_turns", 0) == 0 and random.random() < float(move.get("burn_chance", 0.25)):
@@ -1147,6 +1194,105 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Remaining Suiballs: {p['suiballs']}",
         reply_markup=main_menu_kb(user)
     )
+
+async def give_suiball(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
+    giver = await _bootstrap_user(update)
+    if not update.message or not update.effective_chat:
+        return
+
+    chat_id = int(update.effective_chat.id)
+    if not await is_privileged_user(context.bot, chat_id, int(giver)):
+        await update.message.reply_text("❌ Only allowed user IDs and the group owner can use this.")
+        return
+
+    target: Optional[str] = None
+    amount: Optional[int] = None
+
+    if update.message.reply_to_message and update.message.reply_to_message.from_user:
+        target = str(update.message.reply_to_message.from_user.id)
+        if context.args:
+            try:
+                amount = int(context.args[0])
+            except Exception:
+                amount = None
+    else:
+        target, amount = _parse_target_and_amount(chat_id, context.args)
+
+    if not target or target not in players:
+        await update.message.reply_text(
+            """Usage:
+• Reply to a player: <code>/givesuiball 1</code>
+• Or use: <code>/givesuiball @name 2</code>""",
+            parse_mode="HTML"
+        )
+        return
+
+    if amount is None or amount <= 0:
+        await update.message.reply_text("Please enter a valid amount, e.g. <code>/givesuiball @name 2</code>", parse_mode="HTML")
+        return
+
+    before = int(players[target].get("suiballs", 0))
+    players[target]["suiballs"] = min(999, before + amount)
+    save_players(players)
+
+    await update.message.reply_text(
+        f"✅ Gave <b>{amount}</b> Suiball{'s' if amount != 1 else ''} to <b>{html.escape(display_name(target))}</b>.\n"
+        f"🎒 New total: <b>{players[target]['suiballs']}</b>",
+        parse_mode="HTML"
+    )
+
+
+async def remove_suiball(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
+    giver = await _bootstrap_user(update)
+    if not update.message or not update.effective_chat:
+        return
+
+    chat_id = int(update.effective_chat.id)
+    if not await is_privileged_user(context.bot, chat_id, int(giver)):
+        await update.message.reply_text("❌ Only allowed user IDs and the group owner can use this.")
+        return
+
+    target: Optional[str] = None
+    amount: Optional[int] = None
+
+    if update.message.reply_to_message and update.message.reply_to_message.from_user:
+        target = str(update.message.reply_to_message.from_user.id)
+        if context.args:
+            try:
+                amount = int(context.args[0])
+            except Exception:
+                amount = None
+    else:
+        target, amount = _parse_target_and_amount(chat_id, context.args)
+
+    if not target or target not in players:
+        await update.message.reply_text(
+            """Usage:
+• Reply to a player: <code>/takesuiball 1</code>
+• Or use: <code>/takesuiball @name 2</code>""",
+            parse_mode="HTML"
+        )
+        return
+
+    if amount is None or amount <= 0:
+        await update.message.reply_text("Please enter a valid amount, e.g. <code>/takesuiball @name 2</code>", parse_mode="HTML")
+        return
+
+    before = int(players[target].get("suiballs", 0))
+    players[target]["suiballs"] = max(0, before - amount)
+    removed = before - players[target]["suiballs"]
+    save_players(players)
+
+    await update.message.reply_text(
+        f"✅ Removed <b>{removed}</b> Suiball{'s' if removed != 1 else ''} from <b>{html.escape(display_name(target))}</b>.\n"
+        f"🎒 New total: <b>{players[target]['suiballs']}</b>",
+        parse_mode="HTML"
+    )
+
 
 # =========================
 # XP + BATTLE (INTERACTIVE MOVES)
@@ -1806,6 +1952,8 @@ def main():
     app.add_handler(CommandHandler(["rankings", "leaderboard"], leaderboard))
     app.add_handler(CommandHandler("inventory", inventory))
     app.add_handler(CommandHandler("heal", heal))
+    app.add_handler(CommandHandler("givesuiball", give_suiball))
+    app.add_handler(CommandHandler("takesuiball", remove_suiball))
     app.add_handler(CommandHandler("fight", fight))
 
     app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu(?:\||$)"))
