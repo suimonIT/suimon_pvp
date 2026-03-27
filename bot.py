@@ -21,15 +21,13 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-# Du willst fürs Erste hardcoden können:
 TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
 ALLOWED_GROUP_IDS = {-1003407035529, -1003839722848}
 # Only these user IDs + the Telegram group owner can use privileged admin commands
-# Replace 123456789 with your own Telegram user ID
-PRIVILEGED_USER_IDS = {123456789}
+PRIVILEGED_USER_IDS = {1638084297}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
 
 # In-memory session state (resets if the bot restarts)
