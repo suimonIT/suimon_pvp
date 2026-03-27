@@ -513,6 +513,16 @@ def _parse_target_user_id(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 return uid
     return None
 
+def leaderboard_sort_key(row: Tuple[str, str, int, int, int, int]) -> Tuple[int, int, int, int, str, str]:
+    """
+    Sort by level first, then current XP inside that level, then wins, then losses.
+    This prevents a newly leveled player from appearing below a lower-level player
+    just because their XP rolled over after leveling up.
+    """
+    user_id, trainer_name, xp, level, wins, losses = row
+    return (-level, -xp, -wins, losses, trainer_name.lower(), user_id)
+
+
 def get_leaderboard(limit: int = 10) -> List[Tuple[str, str, int, int, int, int]]:
     ranked: List[Tuple[str, str, int, int, int, int]] = []
     for uid, pdata in players.items():
@@ -526,7 +536,7 @@ def get_leaderboard(limit: int = 10) -> List[Tuple[str, str, int, int, int, int]
             int(pdata.get("wins", 0)),
             int(pdata.get("losses", 0)),
         ))
-    ranked.sort(key=lambda row: (-row[2], -row[4], row[5], row[1].lower(), row[0]))
+    ranked.sort(key=leaderboard_sort_key)
     return ranked[:limit]
 
 
@@ -534,15 +544,33 @@ def get_xp_and_rank(user_id: str) -> Tuple[int, Optional[int]]:
     if user_id not in players or players[user_id].get("champ") not in CHAMPS:
         return 0, None
 
-    user_xp = int(players[user_id].get("xp", 0))
+    user_row = (
+        user_id,
+        display_name(user_id),
+        int(players[user_id].get("xp", 0)),
+        int(players[user_id].get("level", 1)),
+        int(players[user_id].get("wins", 0)),
+        int(players[user_id].get("losses", 0)),
+    )
+    user_key = leaderboard_sort_key(user_row)
+
     better = 0
     for uid, pdata in players.items():
         if uid == user_id or pdata.get("champ") not in CHAMPS:
             continue
-        other_xp = int(pdata.get("xp", 0))
-        if other_xp > user_xp:
+
+        other_row = (
+            uid,
+            display_name(uid),
+            int(pdata.get("xp", 0)),
+            int(pdata.get("level", 1)),
+            int(pdata.get("wins", 0)),
+            int(pdata.get("losses", 0)),
+        )
+        if leaderboard_sort_key(other_row) < user_key:
             better += 1
-    return user_xp, better + 1
+
+    return int(players[user_id].get("xp", 0)), better + 1
 
 
 def build_leaderboard_text(limit: int = 10) -> str:
