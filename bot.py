@@ -20,6 +20,7 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
+# Du willst fürs Erste hardcoden können:
 TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
 DATA_FILE = "players.json"
@@ -512,16 +513,6 @@ def _parse_target_user_id(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 return uid
     return None
 
-def leaderboard_sort_key(row: Tuple[str, str, int, int, int, int]) -> Tuple[int, int, int, int, str, str]:
-    """
-    Sort by level first, then current XP inside that level, then wins, then losses.
-    This prevents a newly leveled player from appearing below a lower-level player
-    just because their XP rolled over after leveling up.
-    """
-    user_id, trainer_name, xp, level, wins, losses = row
-    return (-level, -xp, -wins, losses, trainer_name.lower(), user_id)
-
-
 def get_leaderboard(limit: int = 10) -> List[Tuple[str, str, int, int, int, int]]:
     ranked: List[Tuple[str, str, int, int, int, int]] = []
     for uid, pdata in players.items():
@@ -535,7 +526,7 @@ def get_leaderboard(limit: int = 10) -> List[Tuple[str, str, int, int, int, int]
             int(pdata.get("wins", 0)),
             int(pdata.get("losses", 0)),
         ))
-    ranked.sort(key=leaderboard_sort_key)
+    ranked.sort(key=lambda row: (-row[2], -row[4], row[5], row[1].lower(), row[0]))
     return ranked[:limit]
 
 
@@ -543,47 +534,54 @@ def get_xp_and_rank(user_id: str) -> Tuple[int, Optional[int]]:
     if user_id not in players or players[user_id].get("champ") not in CHAMPS:
         return 0, None
 
-    user_row = (
-        user_id,
-        display_name(user_id),
-        int(players[user_id].get("xp", 0)),
-        int(players[user_id].get("level", 1)),
-        int(players[user_id].get("wins", 0)),
-        int(players[user_id].get("losses", 0)),
-    )
-    user_key = leaderboard_sort_key(user_row)
-
+    user_xp = int(players[user_id].get("xp", 0))
     better = 0
     for uid, pdata in players.items():
         if uid == user_id or pdata.get("champ") not in CHAMPS:
             continue
-
-        other_row = (
-            uid,
-            display_name(uid),
-            int(pdata.get("xp", 0)),
-            int(pdata.get("level", 1)),
-            int(pdata.get("wins", 0)),
-            int(pdata.get("losses", 0)),
-        )
-        if leaderboard_sort_key(other_row) < user_key:
+        other_xp = int(pdata.get("xp", 0))
+        if other_xp > user_xp:
             better += 1
+    return user_xp, better + 1
 
-    return int(players[user_id].get("xp", 0)), better + 1
 
-
-def build_leaderboard_text(limit: int = 10) -> str:
+def build_rankings_text(user_id: Optional[str] = None, limit: int = 10) -> str:
     top_players = get_leaderboard(limit)
     if not top_players:
-        return "🏆 Leaderboard\n\nNo trainers ranked yet. Pick a champ first."
+        return "🏆 SUIMON ARENA — RANKINGS\n\nNo trainers ranked yet. Pick a champ first."
 
-    lines = ["🏆 Leaderboard", ""]
-    for rank, (user_id, trainer_name, xp, level, wins, losses) in enumerate(top_players, 1):
-        lines.append(
-            f"{rank}. {trainer_name} — Lv.{level} | XP: {xp} | {wins}W/{losses}L"
-        )
+    lines = ["🏆 SUIMON ARENA — RANKINGS", ""]
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+    for rank, (pid, trainer_name, xp, level, wins, losses) in enumerate(top_players, 1):
+        pdata = players.get(pid, {})
+        champ_key = pdata.get("champ")
+        champ_type = champ_from_key(champ_key)["type"] if champ_key in CHAMPS else None
+        type_icon = TYPE_EMOJI.get(champ_type, "✨")
+        champ_name = champ_full_name_for_player(pid, champ_key) if champ_key in CHAMPS else "Unknown"
+        total_fights = wins + losses
+        winrate = int(round((wins / total_fights) * 100)) if total_fights > 0 else 0
+
+        if rank <= 3:
+            lines.append(f"{medals[rank]} {trainer_name} {type_icon}")
+            lines.append(f"{champ_name} • Lv.{level}")
+            lines.append(f"⚔️ {wins}W / {losses}L • {winrate}% WR")
+            lines.append("")
+        else:
+            lines.append(f"{rank}. {trainer_name} • Lv.{level} • {xp} XP")
+
+    if user_id and user_id in players and players[user_id].get("champ") in CHAMPS:
+        xp, rank = get_xp_and_rank(user_id)
+        if rank is not None:
+            p = players[user_id]
+            level = int(p.get("level", 1))
+            lines.extend([
+                "",
+                "━━━━━━━━━━",
+                f"👤 You: #{rank} • Lv.{level} • {xp} XP",
+            ])
+
     return "\n".join(lines)
-
 
 # =========================
 # MENUS (INLINE BUTTONS)
@@ -593,7 +591,7 @@ def main_menu_kb(user_id: Optional[str] = None) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📜 Champs", callback_data="menu|champs"),
          InlineKeyboardButton("⚔️ Fight", callback_data="menu|fight")],
-        [InlineKeyboardButton("🏆 Leaderboard", callback_data="menu|leaderboard"),
+        [InlineKeyboardButton("🏆 Rankings", callback_data="menu|leaderboard"),
          InlineKeyboardButton("🪪 Profile", callback_data="menu|profile")],
         [InlineKeyboardButton("🎒 Inventory", callback_data="menu|inventory"),
          InlineKeyboardButton("🩹 Heal", callback_data="menu|heal")],
@@ -694,9 +692,10 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Your champ keeps its remaining HP after every fight.",
         "• If HP reaches 0, heal first with <b>/heal</b>.",
         f"• You receive {DAILY_SUIBALLS} Suiball per day (cap {SUIBALL_CAP}).",
+        "• In groups with many players, fights can require an accept/decline step.",
         "",
         "━━━ Commands ━━━",
-        "/start /menu /champs /choose /name /profile /leaderboard /inventory /heal /fight",
+        "/start /menu /intro /champs /choose /name /profile /rankings /inventory /heal /fight",
     ]
     if p.get("champ") not in CHAMPS:
         lines.insert(2, "⚠️ You haven't chosen a champ yet. Pick one with /choose.")
@@ -895,19 +894,8 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
-    xp, rank = get_xp_and_rank(user)
-    lines = [build_leaderboard_text(10)]
-
-    if rank is not None:
-        p = players[user]
-        level = int(p.get("level", 1))
-        wins = int(p.get("wins", 0))
-        losses = int(p.get("losses", 0))
-        lines.append(
-            f"\nYour Rank: #{rank}\nLevel: {level} | XP: {xp} | Record: {wins}W/{losses}L"
-        )
-
-    await update.message.reply_text("".join(lines), reply_markup=main_menu_kb(user))
+    rankings_text = build_rankings_text(user, 10)
+    await update.message.reply_text(rankings_text, reply_markup=main_menu_kb(user))
 
 
 async def inventory(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1330,15 +1318,8 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     if action == "leaderboard":
-        xp, rank = get_xp_and_rank(user_id)
-        lines = [build_leaderboard_text(10)]
-        if rank is not None:
-            p = players[user_id]
-            level = int(p.get("level", 1))
-            wins = int(p.get("wins", 0))
-            losses = int(p.get("losses", 0))
-            lines.append(f"\nYour Rank: #{rank}\nLevel: {level} | XP: {xp} | Record: {wins}W/{losses}L")
-        await query.edit_message_text("".join(lines), reply_markup=main_menu_kb(user_id))
+        rankings_text = build_rankings_text(user_id, 10)
+        await query.edit_message_text(rankings_text, reply_markup=main_menu_kb(user_id))
         return
     if action == "inventory":
         p = players[user_id]
@@ -1592,7 +1573,7 @@ def main():
     app.add_handler(CommandHandler("name", nickname))
     app.add_handler(CommandHandler("nickname", nickname))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, nickname_text_reply))
-    app.add_handler(CommandHandler("leaderboard", leaderboard))
+    app.add_handler(CommandHandler(["rankings", "leaderboard"], leaderboard))
     app.add_handler(CommandHandler("inventory", inventory))
     app.add_handler(CommandHandler("heal", heal))
     app.add_handler(CommandHandler("fight", fight))
