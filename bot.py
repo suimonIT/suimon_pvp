@@ -20,7 +20,6 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-# Du willst fürs Erste hardcoden können:
 TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
 DATA_FILE = "players.json"
@@ -695,7 +694,6 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Your champ keeps its remaining HP after every fight.",
         "• If HP reaches 0, heal first with <b>/heal</b>.",
         f"• You receive {DAILY_SUIBALLS} Suiball per day (cap {SUIBALL_CAP}).",
-        "• In groups with many players, fights can require an accept/decline step.",
         "",
         "━━━ Commands ━━━",
         "/start /menu /champs /choose /name /profile /leaderboard /inventory /heal /fight",
