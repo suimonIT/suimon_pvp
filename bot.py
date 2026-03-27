@@ -25,7 +25,7 @@ TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
-ALLOWED_GROUP_ID = -1003407035529
+ALLOWED_GROUP_ID = -1001234567890  # set this to your real group id
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
 
 # In-memory session state (resets if the bot restarts)
@@ -55,6 +55,7 @@ MAX_MESSAGE_CHARS = 3800  # keep under Telegram 4096 edit limit
 # Daily items
 DAILY_SUIBALLS = 1
 SUIBALL_CAP = 5
+TZ = timezone.utc
 
 # =========================
 # CHAMPS (Suimon Starter Set)
