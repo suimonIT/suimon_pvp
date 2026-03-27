@@ -3,6 +3,7 @@ import json
 import os
 import asyncio
 import html
+import time
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Any
 
@@ -43,6 +44,7 @@ BATTLES: Dict[int, Dict[str, Any]] = {}
 # Text pacing (seconds)
 # -------------------------
 INTRO_DELAY = 0.8
+REPOSITION_COOLDOWN = 3.5
 COUNTDOWN_STEP_DELAY = 0.55
 ACTION_DELAY = 0.70
 HUD_DELAY = 0.45
@@ -754,7 +756,7 @@ def choose_champ_kb() -> InlineKeyboardMarkup:
 # MESSAGE EDIT STREAM (anti-freeze)
 # =========================
 
-async def _safe_edit(bot, chat_id: int, message_id: int, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> None:
+async def _safe_edit(bot, chat_id: int, message_id: int, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> bool:
     if len(text) > MAX_MESSAGE_CHARS:
         text = text[-MAX_MESSAGE_CHARS:]
     for _ in range(5):
@@ -767,7 +769,7 @@ async def _safe_edit(bot, chat_id: int, message_id: int, text: str, reply_markup
                 disable_web_page_preview=True,
                 reply_markup=reply_markup,
             )
-            return
+            return True
         except RetryAfter as e:
             await asyncio.sleep(float(getattr(e, "retry_after", 1.5)))
         except (TimedOut, NetworkError):
@@ -779,6 +781,54 @@ async def _safe_edit(bot, chat_id: int, message_id: int, text: str, reply_markup
             await asyncio.sleep(0.25)
         except Exception:
             await asyncio.sleep(0.5)
+    return False
+
+
+async def _battle_reposition_message(bot, chat_id: int, state: Dict[str, Any], text: str, reply_markup: Optional[InlineKeyboardMarkup] = None, *, force: bool = False) -> None:
+    now = time.monotonic()
+    cooldown = float(state.get("reposition_cooldown", REPOSITION_COOLDOWN))
+    should_reposition = force or ((now - float(state.get("last_reposition", 0.0))) >= cooldown)
+
+    if not should_reposition:
+        ok = await _safe_edit(bot, chat_id, state["message_id"], text, reply_markup=reply_markup)
+        if ok:
+            state["last_rendered_text"] = text
+            state["last_reply_markup"] = reply_markup
+        return
+
+    sent = False
+    for _ in range(3):
+        try:
+            new_msg = await bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode='HTML',
+                disable_web_page_preview=True,
+                reply_markup=reply_markup,
+            )
+            old_message_id = state["message_id"]
+            state["message_id"] = new_msg.message_id
+            state["last_reposition"] = now
+            state["last_rendered_text"] = text
+            state["last_reply_markup"] = reply_markup
+            sent = True
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=old_message_id)
+            except Exception:
+                pass
+            break
+        except RetryAfter as e:
+            await asyncio.sleep(float(getattr(e, "retry_after", 1.5)))
+        except (TimedOut, NetworkError):
+            await asyncio.sleep(0.8)
+        except Exception:
+            await asyncio.sleep(0.4)
+
+    if not sent:
+        ok = await _safe_edit(bot, chat_id, state["message_id"], text, reply_markup=reply_markup)
+        if ok:
+            state["last_rendered_text"] = text
+            state["last_reply_markup"] = reply_markup
 
 def _trim_lines_to_fit(lines: List[str]) -> str:
     if len(lines) > MAX_LINES_SHOWN:
@@ -1141,19 +1191,19 @@ def _battle_render(state: Dict[str, Any]) -> str:
         body = body[-MAX_MESSAGE_CHARS:]
     return body
 
-async def _battle_push(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, line: str, delay: float = ACTION_DELAY, reply_markup: Optional[InlineKeyboardMarkup] = None):
+async def _battle_push(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, line: str, delay: float = ACTION_DELAY, reply_markup: Optional[InlineKeyboardMarkup] = None, *, force_reposition: bool = False):
     def esc(s: str) -> str:
         return html.escape(s, quote=False)
     state["log_lines"].append(esc(line))
     text = _battle_render(state)
-    await _safe_edit(context.bot, chat_id, state["message_id"], text, reply_markup=reply_markup)
+    await _battle_reposition_message(context.bot, chat_id, state, text, reply_markup=reply_markup, force=force_reposition)
     if delay > 0:
         await asyncio.sleep(delay)
 
-async def _battle_push_hud(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, delay: float = HUD_DELAY, reply_markup: Optional[InlineKeyboardMarkup] = None):
+async def _battle_push_hud(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, delay: float = HUD_DELAY, reply_markup: Optional[InlineKeyboardMarkup] = None, *, force_reposition: bool = False):
     state["log_lines"].append(_battle_hud_html(state))
     text = _battle_render(state)
-    await _safe_edit(context.bot, chat_id, state["message_id"], text, reply_markup=reply_markup)
+    await _battle_reposition_message(context.bot, chat_id, state, text, reply_markup=reply_markup, force=force_reposition)
     if delay > 0:
         await asyncio.sleep(delay)
 
@@ -1191,7 +1241,7 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
     champ_key = _battle_turn_champ_key(state)
     champ_name = champ_display_for_player(_battle_turn_user(state), champ_key)
     kb = _battle_move_keyboard(chat_id, champ_key)
-    await _battle_push(chat_id, state, context, f"🎯 {name}'s turn — choose a move for {champ_name}:", delay=0.05, reply_markup=kb)
+    await _battle_push(chat_id, state, context, f"🎯 {name}'s turn — choose a move for {champ_name}:", delay=0.05, reply_markup=kb, force_reposition=True)
 
 async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, winner: str, loser: str):
     # Persist HP + XP
@@ -1287,6 +1337,11 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
     state = {
         "message_id": message_id,
         "log_lines": [],
+        "last_reposition": 0.0,
+        "reposition_cooldown": REPOSITION_COOLDOWN,
+        "last_rendered_text": "",
+        "last_reply_markup": None,
+        "resolving": False,
         "user": user,
         "opponent": opponent,
         "p1_name": p1_name,
@@ -1306,7 +1361,7 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
     }
     BATTLES[chat_id] = state
 
-    await _battle_push(chat_id, state, context, "⚔️ BATTLE START ⚔️", delay=0.25, reply_markup=None)
+    await _battle_push(chat_id, state, context, "⚔️ BATTLE START ⚔️", delay=0.25, reply_markup=None, force_reposition=True)
     await _battle_push(chat_id, state, context, f"👤 {p1_name} sends out {champ_full_name_for_player(user, c1_key)}!", delay=0.30, reply_markup=None)
     await _battle_push(chat_id, state, context, f"👤 {p2_name} sends out {champ_full_name_for_player(opponent, c2_key)}!", delay=0.30, reply_markup=None)
     await _battle_push_hud(chat_id, state, context, delay=0.30, reply_markup=None)
@@ -1630,6 +1685,10 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     clicker = str(query.from_user.id)
 
+    if state.get("resolving"):
+        await query.answer("Action is already resolving…", show_alert=False)
+        return
+
     if kind == "ff":
         # forfeit: must be a participant
         if clicker not in (state["user"], state["opponent"]):
@@ -1650,6 +1709,8 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.answer("Not your turn.", show_alert=False)
         return
 
+    state["resolving"] = True
+
     # Resolve a turn action
     attacker = _battle_turn_champ_state(state)
     defender = _battle_def_champ_state(state)
@@ -1659,64 +1720,69 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     a_name = champ_display_for_player(clicker, a_key)
 
     # Remove keyboard while resolving (prevents double clicks)
-    await _safe_edit(context.bot, chat_id, state["message_id"], _battle_render(state), reply_markup=None)
+    await _battle_reposition_message(context.bot, chat_id, state, _battle_render(state), reply_markup=None)
 
-    # status tick at start of turn
-    for line in status_tick_lines(attacker, a_name):
-        await _battle_push(chat_id, state, context, line, delay=0.45, reply_markup=None)
-    if attacker["hp"] <= 0:
-        # attacker died to burn
-        winner = state["opponent"] if clicker == state["user"] else state["user"]
-        loser = clicker
-        await _end_battle(chat_id, state, context, winner=winner, loser=loser)
-        return
+    try:
+            # status tick at start of turn
+        for line in status_tick_lines(attacker, a_name):
+            await _battle_push(chat_id, state, context, line, delay=0.45, reply_markup=None)
+        if attacker["hp"] <= 0:
+            # attacker died to burn
+            winner = state["opponent"] if clicker == state["user"] else state["user"]
+            loser = clicker
+            await _end_battle(chat_id, state, context, winner=winner, loser=loser)
+            return
 
-    ok, sleep_lines = can_act(attacker)
-    if not ok:
-        await _battle_push(chat_id, state, context, f"{STATUS_EMOJI['sleep']} {a_name} {sleep_lines[0]}", delay=0.55, reply_markup=None)
-    else:
-        # choose move by idx
-        try:
-            idx = int(parts[2])
-        except Exception:
-            idx = 0
-        moves = champ_from_key(a_key)["moves"]
-        idx = max(0, min(idx, len(moves) - 1))
-        move = moves[idx]
-
-        before_hp = int(defender["hp"])
-        defender_user = state["opponent"] if clicker == state["user"] else state["user"]
-        for line in do_move(attacker, defender, a_key, d_key, a_lvl, move, attacker_name=a_name, defender_name=champ_display_for_player(defender_user, d_key)):
-            await _battle_push(chat_id, state, context, line, delay=0.55, reply_markup=None)
-        _ = max(0, before_hp - int(defender["hp"]))
-
-    # HUD after action
-    attacker["hp"] = max(0, int(attacker["hp"]))
-    defender["hp"] = max(0, int(defender["hp"]))
-    await _battle_push_hud(chat_id, state, context, delay=0.25, reply_markup=None)
-
-    # Check end
-    if state["champ1"]["hp"] <= 0 or state["champ2"]["hp"] <= 0:
-        winner = state["user"] if state["champ1"]["hp"] > 0 else state["opponent"]
-        loser = state["opponent"] if winner == state["user"] else state["user"]
-        await _end_battle(chat_id, state, context, winner=winner, loser=loser)
-        return
-
-    state["actions"] += 1
-    if state["round"] >= state["max_rounds"]:
-        # decide by remaining HP
-        if state["champ1"]["hp"] == state["champ2"]["hp"]:
-            winner = state["user"] if random.random() < 0.5 else state["opponent"]
+        ok, sleep_lines = can_act(attacker)
+        if not ok:
+            await _battle_push(chat_id, state, context, f"{STATUS_EMOJI['sleep']} {a_name} {sleep_lines[0]}", delay=0.55, reply_markup=None)
         else:
-            winner = state["user"] if state["champ1"]["hp"] > state["champ2"]["hp"] else state["opponent"]
-        loser = state["opponent"] if winner == state["user"] else state["user"]
-        await _battle_push(chat_id, state, context, "⏱️ Time! Battle ends by decision.", delay=0.35, reply_markup=None)
-        await _end_battle(chat_id, state, context, winner=winner, loser=loser)
-        return
+            # choose move by idx
+            try:
+                idx = int(parts[2])
+            except Exception:
+                idx = 0
+            moves = champ_from_key(a_key)["moves"]
+            idx = max(0, min(idx, len(moves) - 1))
+            move = moves[idx]
 
-    # next turn
-    _battle_next_turn(state)
-    await _battle_prompt_turn(chat_id, state, context)
+            before_hp = int(defender["hp"])
+            defender_user = state["opponent"] if clicker == state["user"] else state["user"]
+            for line in do_move(attacker, defender, a_key, d_key, a_lvl, move, attacker_name=a_name, defender_name=champ_display_for_player(defender_user, d_key)):
+                await _battle_push(chat_id, state, context, line, delay=0.55, reply_markup=None)
+            _ = max(0, before_hp - int(defender["hp"]))
+
+        # HUD after action
+        attacker["hp"] = max(0, int(attacker["hp"]))
+        defender["hp"] = max(0, int(defender["hp"]))
+        await _battle_push_hud(chat_id, state, context, delay=0.25, reply_markup=None)
+
+        # Check end
+        if state["champ1"]["hp"] <= 0 or state["champ2"]["hp"] <= 0:
+            winner = state["user"] if state["champ1"]["hp"] > 0 else state["opponent"]
+            loser = state["opponent"] if winner == state["user"] else state["user"]
+            await _end_battle(chat_id, state, context, winner=winner, loser=loser)
+            return
+
+        state["actions"] += 1
+        if state["round"] >= state["max_rounds"]:
+            # decide by remaining HP
+            if state["champ1"]["hp"] == state["champ2"]["hp"]:
+                winner = state["user"] if random.random() < 0.5 else state["opponent"]
+            else:
+                winner = state["user"] if state["champ1"]["hp"] > state["champ2"]["hp"] else state["opponent"]
+            loser = state["opponent"] if winner == state["user"] else state["user"]
+            await _battle_push(chat_id, state, context, "⏱️ Time! Battle ends by decision.", delay=0.35, reply_markup=None)
+            await _end_battle(chat_id, state, context, winner=winner, loser=loser)
+            return
+
+        # next turn
+        _battle_next_turn(state)
+        await _battle_prompt_turn(chat_id, state, context)
+    finally:
+        latest = BATTLES.get(chat_id)
+        if latest is state:
+            state["resolving"] = False
 
 # =========================
 # MAIN
