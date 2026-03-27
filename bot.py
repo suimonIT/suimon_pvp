@@ -221,7 +221,7 @@ def fancy_menu_caption(user_id: str) -> str:
             "• Open <b>📜 Champs</b>\n"
             "• Pick your starter\n"
             "• Name it with <code>/name YourName</code>\n"
-            "• Challenge players with <code>/fight</code>"
+            "• Challenge players with <code>/fight</code>\n"
             "• Use /intro for full guide."
         )
 
