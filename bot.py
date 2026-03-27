@@ -1463,7 +1463,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🏅 <b>Record:</b> {w}W / {l}L\n\n"
             f"{TYPE_EMOJI[champ['type']]} <b>{html.escape(champ_full_name_for_player(user_id, champ_key))}</b> (Lv.<b>{lv}</b>){fainted}\n"
             f"❤️ <b>HP:</b> {cur_hp}/{stats['hp']} ({hp_bar(cur_hp, stats['hp'])})\n"
-            f"✨ <b>XP:</b> {xp}/{need if level < MAX_LEVEL else 0}\n"
+            f"✨ <b>XP:</b> {xp}/{need if lv < MAX_LEVEL else 0}\n"
             f"📈 <b>Stats:</b> ATK {stats['atk']} | DEF {stats['def']} | SPD {stats['spd']}\n\n"
             f"🎒 <b>Suiballs:</b> {balls} (daily +{DAILY_SUIBALLS}, cap {SUIBALL_CAP})\n"
             f"🔒 <b>Max Level:</b> {MAX_LEVEL}",
