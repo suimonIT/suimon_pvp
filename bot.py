@@ -23,8 +23,10 @@ from telegram.ext import (
 # Du willst fürs Erste hardcoden können:
 TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
-DATA_FILE = "players.json"
-TZ = timezone.utc  # UTC for all daily resets
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE = os.path.join(BASE_DIR, "players.json")
+ALLOWED_GROUP_IDS = {-1003407035529, -1003839722848}
+MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
 
 # In-memory session state (resets if the bot restarts)
 # Keyed by (chat_id, target_user_id) -> {"from": challenger_id, "ts": iso}
@@ -51,8 +53,10 @@ MAX_LINES_SHOWN = 70
 MAX_MESSAGE_CHARS = 3800  # keep under Telegram 4096 edit limit
 
 # Daily items
-DAILY_SUIBALLS = 1
+DAILY_SUIBALLS = 2
 SUIBALL_CAP = 5
+MAX_LEVEL = 10
+TZ = timezone.utc
 
 # =========================
 # CHAMPS (Suimon Starter Set)
@@ -151,6 +155,96 @@ CHAMPS_BY_TYPE = {
     "water": {"strong_against": "fire", "weak_to": "nature"},
     "nature": {"strong_against": "water", "weak_to": "fire"},
 }
+
+def resolve_menu_image_path() -> Optional[str]:
+    for name in MENU_IMAGE_CANDIDATES:
+        candidate = os.path.join(BASE_DIR, name)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def is_allowed_chat_id(chat_id: Optional[int]) -> bool:
+    return chat_id is not None and chat_id in ALLOWED_GROUP_IDS
+
+
+async def ensure_allowed_chat(update: Update, context: Optional[ContextTypes.DEFAULT_TYPE] = None) -> bool:
+    chat = update.effective_chat
+    chat_id = int(chat.id) if chat else None
+    if is_allowed_chat_id(chat_id):
+        return True
+
+    msg = "🚫 <b>This bot only works in the official Suimon group.</b>"
+
+    if update.callback_query:
+        try:
+            await update.callback_query.answer("This bot only works in the official Suimon group.", show_alert=True)
+        except Exception:
+            pass
+    elif update.effective_message:
+        try:
+            await update.effective_message.reply_text(msg, parse_mode="HTML")
+        except Exception:
+            pass
+    return False
+
+
+async def send_menu_photo(message, caption: str, reply_markup: InlineKeyboardMarkup) -> None:
+    image_path = resolve_menu_image_path()
+    if image_path:
+        with open(image_path, "rb") as photo:
+            await message.reply_photo(photo=photo, caption=caption, reply_markup=reply_markup, parse_mode="HTML")
+    else:
+        await message.reply_text(caption, reply_markup=reply_markup, parse_mode="HTML", disable_web_page_preview=True)
+
+
+async def edit_menu_message(query, caption: str, reply_markup: InlineKeyboardMarkup, *, disable_web_page_preview: bool = True) -> None:
+    message = query.message
+    if message and getattr(message, "photo", None):
+        try:
+            await query.edit_message_caption(caption=caption, reply_markup=reply_markup, parse_mode="HTML")
+            return
+        except BadRequest:
+            pass
+    await query.edit_message_text(caption, reply_markup=reply_markup, parse_mode="HTML", disable_web_page_preview=disable_web_page_preview)
+
+
+def fancy_menu_caption(user_id: str) -> str:
+    p = players.get(user_id, {})
+    champ_key = p.get("champ")
+    title = f"🧭 <b>{html.escape(display_name(user_id))}'s Menu</b>"
+    if champ_key not in CHAMPS:
+        return (
+            f"{title}\n\n"
+            "🔥 <b>Welcome to Suimon Arena</b>\n"
+            "Pick your starter, name it and begin your climb.\n\n"
+            "✨ <b>Start here</b>\n"
+            "• Open <b>📜 Champs</b>\n"
+            "• Pick your starter\n"
+            "• Name it with <code>/name YourName</code>\n"
+            "• Challenge players with <code>/fight</code>"
+        )
+
+    level = int(p.get("level", 1))
+    xp = int(p.get("xp", 0))
+    need = xp_needed(level)
+    wins = int(p.get("wins", 0))
+    losses = int(p.get("losses", 0))
+    balls = int(p.get("suiballs", 0))
+    stats = get_stats(champ_key, level)
+    cur_hp = get_or_init_current_hp(user_id)
+    champ_label = html.escape(champ_full_name_for_player(user_id, champ_key))
+    type_icon = TYPE_EMOJI.get(champ_from_key(champ_key)["type"], "✨")
+    return (
+        f"{title}\n\n"
+        f"{type_icon} <b>{champ_label}</b> • Lv.<b>{level}</b>\n"
+        f"❤️ <b>HP:</b> {cur_hp}/{stats['hp']}\n"
+        f"✨ <b>XP:</b> {xp}/{need if level < MAX_LEVEL else 0}\n"
+        f"⚔️ <b>Record:</b> {wins}W / {losses}L\n"
+        f"🎒 <b>Suiballs:</b> {balls}\n\n"
+        "Choose your next move below."
+    )
+
 
 # =========================
 # STORAGE
@@ -277,6 +371,7 @@ def battle_hud(p1_label: str, hp1: int, max1: int, p2_label: str, hp2: int, max2
     return format_hp_line(p1_label, hp1, max1) + "\n\n" + format_hp_line(p2_label, hp2, max2)
 
 def xp_needed(level: int) -> int:
+    level = max(1, min(int(level), MAX_LEVEL))
     return int(60 + (level - 1) * 18 + (level ** 2) * 3)
 
 def champ_key_from_input(arg: str) -> Optional[str]:
@@ -295,6 +390,7 @@ def champ_key_from_input(arg: str) -> Optional[str]:
     return aliases.get(a)
 
 def get_stats(champ_key: str, level: int) -> Dict[str, int]:
+    level = max(1, min(int(level), MAX_LEVEL))
     base = champ_from_key(champ_key)["base"]
     hp = int(round(base["hp"] + (level - 1) * 9))
     atk = int(round(base["atk"] + (level - 1) * 2))
@@ -302,10 +398,27 @@ def get_stats(champ_key: str, level: int) -> Dict[str, int]:
     spd = int(round(base["spd"] + (level - 1) * 1))
     return {"hp": hp, "atk": atk, "def": df, "spd": spd}
 
-def ensure_player(user_id: str, tg_name: str) -> None:
+def normalize_player_state(user_id: str) -> None:
+    if user_id not in players:
+        return
+    p = players[user_id]
+    try:
+        p["level"] = max(1, min(int(p.get("level", 1)), MAX_LEVEL))
+    except Exception:
+        p["level"] = 1
+    try:
+        p["xp"] = max(0, int(p.get("xp", 0)))
+    except Exception:
+        p["xp"] = 0
+    if p["level"] >= MAX_LEVEL:
+        p["level"] = MAX_LEVEL
+        p["xp"] = 0
+
+def ensure_player(user_id: str, tg_name: str, tg_username: Optional[str] = None) -> None:
     if user_id not in players:
         players[user_id] = {
             "name": tg_name,
+            "username": tg_username or "",
             "champ": None,
             "level": 1,
             "xp": 0,
@@ -315,10 +428,14 @@ def ensure_player(user_id: str, tg_name: str) -> None:
             "last_daily": None,
             "hp": None,          # persistent HP
             "chats": [],         # chat ids where player is active
+            "champ_nickname": None,
+            "awaiting_nickname": False,
         }
     else:
         if tg_name and players[user_id].get("name") != tg_name:
             players[user_id]["name"] = tg_name
+        players[user_id]["username"] = tg_username or players[user_id].get("username", "")
+    normalize_player_state(user_id)
 
 def ensure_daily(user_id: str) -> bool:
     p = players[user_id]
@@ -465,14 +582,21 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
 def grant_xp_with_hp_adjust(player_id: str, gained: int) -> None:
     p = players[player_id]
     champ_key = p.get("champ")
-    old_level = int(p.get("level", 1))
+    old_level = max(1, min(int(p.get("level", 1)), MAX_LEVEL))
+    p["level"] = old_level
     old_max = get_stats(champ_key, old_level)["hp"] if champ_key in CHAMPS else 0
     cur_hp = get_or_init_current_hp(player_id)
+
+    if old_level >= MAX_LEVEL:
+        p["xp"] = 0
+        p["just_leveled"] = False
+        set_current_hp(player_id, cur_hp)
+        return
 
     p["xp"] = int(p.get("xp", 0)) + int(gained)
 
     leveled = False
-    while p["xp"] >= xp_needed(int(p.get("level", 1))):
+    while int(p.get("level", 1)) < MAX_LEVEL and p["xp"] >= xp_needed(int(p.get("level", 1))):
         need = xp_needed(int(p.get("level", 1)))
         p["xp"] -= need
         p["level"] = int(p.get("level", 1)) + 1
@@ -484,6 +608,10 @@ def grant_xp_with_hp_adjust(player_id: str, gained: int) -> None:
         cur_hp = min(new_max, cur_hp + delta)
         old_max = new_max
         set_current_hp(player_id, cur_hp)
+
+    if int(p.get("level", 1)) >= MAX_LEVEL:
+        p["level"] = MAX_LEVEL
+        p["xp"] = 0
 
     set_current_hp(player_id, cur_hp)
     p["just_leveled"] = leveled
@@ -513,6 +641,15 @@ def _parse_target_user_id(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 return uid
     return None
 
+def ranking_sort_key(uid: str) -> Tuple[int, int, int, int, str, str]:
+    pdata = players.get(uid, {})
+    level = int(pdata.get("level", 1))
+    xp = int(pdata.get("xp", 0))
+    wins = int(pdata.get("wins", 0))
+    losses = int(pdata.get("losses", 0))
+    return (-level, -xp, -wins, losses, display_name(uid).lower(), uid)
+
+
 def get_leaderboard(limit: int = 10) -> List[Tuple[str, str, int, int, int, int]]:
     ranked: List[Tuple[str, str, int, int, int, int]] = []
     for uid, pdata in players.items():
@@ -526,7 +663,7 @@ def get_leaderboard(limit: int = 10) -> List[Tuple[str, str, int, int, int, int]
             int(pdata.get("wins", 0)),
             int(pdata.get("losses", 0)),
         ))
-    ranked.sort(key=lambda row: (-row[2], -row[4], row[5], row[1].lower(), row[0]))
+    ranked.sort(key=lambda row: ranking_sort_key(row[0]))
     return ranked[:limit]
 
 
@@ -534,29 +671,61 @@ def get_xp_and_rank(user_id: str) -> Tuple[int, Optional[int]]:
     if user_id not in players or players[user_id].get("champ") not in CHAMPS:
         return 0, None
 
-    user_xp = int(players[user_id].get("xp", 0))
-    better = 0
-    for uid, pdata in players.items():
-        if uid == user_id or pdata.get("champ") not in CHAMPS:
-            continue
-        other_xp = int(pdata.get("xp", 0))
-        if other_xp > user_xp:
-            better += 1
-    return user_xp, better + 1
+    ordered_ids = sorted(
+        [uid for uid, pdata in players.items() if pdata.get("champ") in CHAMPS],
+        key=ranking_sort_key,
+    )
+    xp = int(players[user_id].get("xp", 0))
+    try:
+        rank = ordered_ids.index(user_id) + 1
+    except ValueError:
+        rank = None
+    return xp, rank
 
 
-def build_leaderboard_text(limit: int = 10) -> str:
+def mention_html(user_id: str, fallback_name: Optional[str] = None) -> str:
+    label = html.escape(fallback_name or display_name(user_id) or "Player")
+    return f'<a href="tg://user?id={user_id}">{label}</a>'
+
+
+def build_rankings_text(user_id: Optional[str] = None, limit: int = 10) -> str:
     top_players = get_leaderboard(limit)
     if not top_players:
-        return "🏆 Leaderboard\n\nNo trainers ranked yet. Pick a champ first."
+        return "🏆 <b>SUIMON ARENA — RANKINGS</b>\n\nNo trainers ranked yet. Pick a champ first."
 
-    lines = ["🏆 Leaderboard", ""]
-    for rank, (user_id, trainer_name, xp, level, wins, losses) in enumerate(top_players, 1):
-        lines.append(
-            f"{rank}. {trainer_name} — Lv.{level} | XP: {xp} | {wins}W/{losses}L"
-        )
+    lines = ["🏆 <b>SUIMON ARENA — RANKINGS</b>", ""]
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+    for rank, (pid, trainer_name, xp, level, wins, losses) in enumerate(top_players, 1):
+        pdata = players.get(pid, {})
+        champ_key = pdata.get("champ")
+        champ_type = champ_from_key(champ_key)["type"] if champ_key in CHAMPS else None
+        type_icon = TYPE_EMOJI.get(champ_type, "✨")
+        champ_name = html.escape(champ_full_name_for_player(pid, champ_key) if champ_key in CHAMPS else "Unknown")
+        total_fights = wins + losses
+        winrate = int(round((wins / total_fights) * 100)) if total_fights > 0 else 0
+        trainer_link = mention_html(pid, trainer_name)
+
+        if rank <= 3:
+            lines.append(f"{medals[rank]} <b>{trainer_link}</b> {type_icon}")
+            lines.append(f"<code>{champ_name}</code> • Lv.<b>{level}</b>")
+            lines.append(f"⚔️ <b>{wins}W / {losses}L</b> • <b>{winrate}% WR</b>")
+            lines.append("")
+        else:
+            lines.append(f"{rank}. <b>{trainer_link}</b> • Lv.<b>{level}</b> • <b>{xp} XP</b>")
+
+    if user_id and user_id in players and players[user_id].get("champ") in CHAMPS:
+        xp, rank = get_xp_and_rank(user_id)
+        if rank is not None:
+            p = players[user_id]
+            level = int(p.get("level", 1))
+            lines.extend([
+                "",
+                "━━━━━━━━━━",
+                f"👤 <b>You:</b> #{rank} • Lv.<b>{level}</b> • <b>{xp} XP</b>",
+            ])
+
     return "\n".join(lines)
-
 
 # =========================
 # MENUS (INLINE BUTTONS)
@@ -566,7 +735,7 @@ def main_menu_kb(user_id: Optional[str] = None) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📜 Champs", callback_data="menu|champs"),
          InlineKeyboardButton("⚔️ Fight", callback_data="menu|fight")],
-        [InlineKeyboardButton("🏆 Leaderboard", callback_data="menu|leaderboard"),
+        [InlineKeyboardButton("🏆 Rankings", callback_data="menu|leaderboard"),
          InlineKeyboardButton("🪪 Profile", callback_data="menu|profile")],
         [InlineKeyboardButton("🎒 Inventory", callback_data="menu|inventory"),
          InlineKeyboardButton("🩹 Heal", callback_data="menu|heal")],
@@ -632,7 +801,7 @@ async def _bootstrap_user(update: Update) -> str:
 
     user_id = str(update.effective_user.id)
     tg_name = (update.effective_user.first_name or "Player").strip()
-    ensure_player(user_id, tg_name)
+    ensure_player(user_id, tg_name, update.effective_user.username)
 
     if update.effective_chat:
         _remember_chat(user_id, int(update.effective_chat.id))
@@ -642,12 +811,16 @@ async def _bootstrap_user(update: Update) -> str:
     return user_id
 
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     user_id = await _bootstrap_user(update)
     if not update.message:
         return
-    await update.message.reply_text(menu_title(user_id), reply_markup=main_menu_kb(user_id), parse_mode="HTML")
+    await send_menu_photo(update.message, fancy_menu_caption(user_id), main_menu_kb(user_id))
 
 async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     user = await _bootstrap_user(update)
     p = players[user]
     lines = [
@@ -666,47 +839,28 @@ async def intro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "━━━ Core rules ━━━",
         "• Your champ keeps its remaining HP after every fight.",
         "• If HP reaches 0, heal first with <b>/heal</b>.",
-        f"• You receive {DAILY_SUIBALLS} Suiball per day (cap {SUIBALL_CAP}).",
+        f"• You receive {DAILY_SUIBALLS} Suiballs per day (cap {SUIBALL_CAP}).",
+        f"• Max level is {MAX_LEVEL}.",
         "• In groups with many players, fights can require an accept/decline step.",
         "",
         "━━━ Commands ━━━",
-        "/start /menu /champs /choose /name /profile /leaderboard /inventory /heal /fight",
+        "/start /menu /intro /champs /choose /name /profile /rankings /inventory /heal /fight",
     ]
     if p.get("champ") not in CHAMPS:
         lines.insert(2, "⚠️ You haven't chosen a champ yet. Pick one with /choose.")
     await update.message.reply_text("\n".join(lines), reply_markup=main_menu_kb(user), parse_mode="HTML")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = await _bootstrap_user(update)
-    p = players[user]
-    champ_key = p.get("champ")
-    if champ_key in CHAMPS:
-        champ = champ_from_key(champ_key)
-        lv = int(p.get("level", 1))
-        cur = get_or_init_current_hp(user)
-        mx = get_stats(champ_key, lv)["hp"]
-        await update.message.reply_text(
-            f"✅ You chose {champ_full_name_for_player(user, champ_key)} ({TYPE_EMOJI[champ['type']]} {champ['type'].upper()}).\n"
-            f"❤️ HP: {cur}/{mx}\n\n"
-            f"Open {display_name(user)}'s menu below:",
-            reply_markup=main_menu_kb(user)
-        )
-        save_players(players)
+    if not await ensure_allowed_chat(update, context):
         return
-    await update.message.reply_text(
-        "🔥 <b>Welcome to Suimon Arena</b>\n\n"
-        "Train one starter, name it, battle other players and keep leveling it up.\n\n"
-        "<b>Quick start</b>\n"
-        "• Open Menu → 📜 Champs and choose your starter\n"
-        "• Name it with <b>/name Joyamon</b>\n"
-        "• Start PvP with <b>/fight</b> or <b>/fight @Name</b>\n"
-        "• Heal persistent HP anytime with <b>/heal</b>\n\n"
-        "Use /intro for the full guide.",
-        reply_markup=main_menu_kb(user),
-        parse_mode="HTML"
-    )
+    user = await _bootstrap_user(update)
+    if not update.message:
+        return
+    await send_menu_photo(update.message, fancy_menu_caption(user), main_menu_kb(user))
 
 async def champs_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     await _bootstrap_user(update)
     lines = ["📜 Starter Champs", ""]
     for _, c in CHAMPS.items():
@@ -715,9 +869,11 @@ async def champs_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"   Moves: {moves}")
         lines.append("")
     if update.message:
-        await update.message.reply_text("🌟 <b>Choose your starter</b>\n\n" + "\n".join(lines), reply_markup=choose_champ_kb(), parse_mode="HTML")
+        await update.message.reply_text("🌟 <b>Choose your starter</b>\n\n" + "\n".join(lines), choose_champ_kb())
 
 async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     user = await _bootstrap_user(update)
     if not update.message:
         return
@@ -748,11 +904,12 @@ async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🚫 You cannot fight yet. First give your champ a custom name.\n\n"
         "Use <code>/name YourName</code>\n"
         "Example: <code>/name Joyamon</code>",
-        reply_markup=naming_prompt_kb(),
-        parse_mode="HTML"
+        naming_prompt_kb()
     )
 
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     user = await _bootstrap_user(update)
     if update.message and needs_nickname_prompt(user):
         await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb(), parse_mode="HTML")
@@ -781,14 +938,17 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🏅 Record: {w}W / {l}L\n\n"
         f"{TYPE_EMOJI[champ['type']]} {champ_label} (Lv.{lv}){fainted}\n"
         f"❤️ HP: {cur_hp}/{stats['hp']} ({hp_bar(cur_hp, stats['hp'])})\n"
-        f"✨ XP: {xp}/{need}\n"
+        f"✨ XP: {xp}/{need if lv < MAX_LEVEL else 0}\n"
         f"📈 Stats: ATK {stats['atk']} | DEF {stats['def']} | SPD {stats['spd']}\n\n"
-        f"🎒 Suiballs: {balls} (daily +{DAILY_SUIBALLS}, cap {SUIBALL_CAP})",
+        f"🎒 Suiballs: {balls} (daily +{DAILY_SUIBALLS}, cap {SUIBALL_CAP})\n"
+        f"🔒 Max Level: {MAX_LEVEL}",
         reply_markup=main_menu_kb(user),
         parse_mode="HTML"
     )
 
 async def nickname(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     user = await _bootstrap_user(update)
     if not update.message:
         return
@@ -830,6 +990,8 @@ async def nickname(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def nickname_text_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     user = await _bootstrap_user(update)
     if not update.message:
         return
@@ -862,6 +1024,8 @@ async def nickname_text_reply(update: Update, context: ContextTypes.DEFAULT_TYPE
         parse_mode='HTML'
     )
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     user = await _bootstrap_user(update)
     if update.message and needs_nickname_prompt(user):
         await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb(), parse_mode="HTML")
@@ -869,22 +1033,13 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
-    xp, rank = get_xp_and_rank(user)
-    lines = [build_leaderboard_text(10)]
-
-    if rank is not None:
-        p = players[user]
-        level = int(p.get("level", 1))
-        wins = int(p.get("wins", 0))
-        losses = int(p.get("losses", 0))
-        lines.append(
-            f"\nYour Rank: #{rank}\nLevel: {level} | XP: {xp} | Record: {wins}W/{losses}L"
-        )
-
-    await update.message.reply_text("".join(lines), reply_markup=main_menu_kb(user))
+    rankings_text = build_rankings_text(user, 10)
+    await update.message.reply_text(rankings_text, reply_markup=main_menu_kb(user), parse_mode="HTML", disable_web_page_preview=True)
 
 
 async def inventory(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     user = await _bootstrap_user(update)
     if update.message and needs_nickname_prompt(user):
         await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb(), parse_mode="HTML")
@@ -906,6 +1061,8 @@ async def inventory(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     user = await _bootstrap_user(update)
     if update.message and needs_nickname_prompt(user):
         await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb(), parse_mode="HTML")
@@ -935,7 +1092,7 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_players(players)
     champ = champ_from_key(champ_key)
     await update.message.reply_text(
-        f"🧿 Used 1 Suiball on {champ_full_name_for_player(user_id, champ_key)}!\n"
+        f"🧿 Used 1 Suiball on {champ_full_name_for_player(user, champ_key)}!\n"
         f"❤️ HP restored: {mx}/{mx}\n"
         f"Remaining Suiballs: {p['suiballs']}",
         reply_markup=main_menu_kb(user)
@@ -1169,6 +1326,8 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
 # =========================
 
 async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     user = await _bootstrap_user(update)
     if update.message and needs_nickname_prompt(user):
         await update.message.reply_text(nickname_required_text(user), reply_markup=naming_prompt_kb(), parse_mode="HTML")
@@ -1218,6 +1377,8 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     query = update.callback_query
     if not query or not query.message:
         return
@@ -1227,7 +1388,7 @@ async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         action, challenger = data.split("|", 1)
     except ValueError:
-        await _edit_query_message(query, "Invalid challenge data.")
+        await query.edit_message_text("Invalid challenge data.")
         return
 
     chat_id = int(query.message.chat.id)
@@ -1236,26 +1397,26 @@ async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     key = (chat_id, opponent)
     payload = PENDING_CHALLENGES.get(key)
     if not payload:
-        await _edit_query_message(query, "⚠️ Challenge expired or already handled.")
+        await query.edit_message_text("⚠️ Challenge expired or already handled.")
         return
 
     expected = str(payload.get("from", ""))
     if expected != str(challenger):
         PENDING_CHALLENGES.pop(key, None)
-        await _edit_query_message(query, "⚠️ Challenge mismatch. Please challenge again.")
+        await query.edit_message_text("⚠️ Challenge mismatch. Please challenge again.")
         return
 
     PENDING_CHALLENGES.pop(key, None)
 
     if action.startswith("suimon_decline"):
-        await _edit_query_message(query, "❌ Challenge declined.")
+        await query.edit_message_text("❌ Challenge declined.")
         return
 
     if not action.startswith("suimon_accept"):
-        await _edit_query_message(query, "Invalid action.")
+        await query.edit_message_text("Invalid action.")
         return
 
-    await _edit_query_message(query, "✅ Fight request accepted. Battle starting…")
+    await query.edit_message_text("✅ Fight request accepted. Battle starting…")
     await _start_battle(chat_id, str(challenger), opponent, context)
 
 # =========================
@@ -1263,22 +1424,27 @@ async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 # =========================
 
 async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     query = update.callback_query
     if not query or not query.data:
         return
     await query.answer()
+
     user_id = str(query.from_user.id)
-    ensure_player(user_id, (query.from_user.first_name or "Player").strip())
+    ensure_player(user_id, (query.from_user.first_name or "Player").strip(), query.from_user.username)
     if query.message:
         _remember_chat(user_id, int(query.message.chat.id))
     ensure_daily(user_id)
     save_players(players)
+
     action = query.data.split("|", 1)[1] if "|" in query.data else "home"
+
     if action == "profile":
         p = players[user_id]
         champ_key = p.get("champ")
         if champ_key not in CHAMPS:
-            await _edit_query_message(query, "You have no champ yet. Use /start", reply_markup=main_menu_kb(user_id))
+            await edit_menu_message(query, "You have no champ yet. Use /start", main_menu_kb(user_id))
             return
         champ = champ_from_key(champ_key)
         lv = int(p.get("level", 1))
@@ -1290,87 +1456,85 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         l = int(p.get("losses", 0))
         balls = int(p.get("suiballs", 0))
         fainted = " (FAINTED)" if cur_hp <= 0 else ""
-        await _edit_query_message(query, 
+        await edit_menu_message(
+            query,
             "🪪 <b>Trainer Card</b>\n\n"
-            f"👤 {display_name(user_id)}\n"
-            f"🏅 Record: {w}W / {l}L\n\n"
-            f"{TYPE_EMOJI[champ['type']]} {champ_full_name_for_player(user_id, champ_key)} (Lv.{lv}){fainted}\n"
-            f"❤️ HP: {cur_hp}/{stats['hp']} ({hp_bar(cur_hp, stats['hp'])})\n"
-            f"✨ XP: {xp}/{need}\n"
-            f"📈 Stats: ATK {stats['atk']} | DEF {stats['def']} | SPD {stats['spd']}\n\n"
-            f"🎒 Suiballs: {balls} (daily +{DAILY_SUIBALLS}, cap {SUIBALL_CAP})",
-            reply_markup=main_menu_kb(user_id),
-            parse_mode="HTML"
+            f"👤 <b>{html.escape(display_name(user_id))}</b>\n"
+            f"🏅 <b>Record:</b> {w}W / {l}L\n\n"
+            f"{TYPE_EMOJI[champ['type']]} <b>{html.escape(champ_full_name_for_player(user_id, champ_key))}</b> (Lv.<b>{lv}</b>){fainted}\n"
+            f"❤️ <b>HP:</b> {cur_hp}/{stats['hp']} ({hp_bar(cur_hp, stats['hp'])})\n"
+            f"✨ <b>XP:</b> {xp}/{need if level < MAX_LEVEL else 0}\n"
+            f"📈 <b>Stats:</b> ATK {stats['atk']} | DEF {stats['def']} | SPD {stats['spd']}\n\n"
+            f"🎒 <b>Suiballs:</b> {balls} (daily +{DAILY_SUIBALLS}, cap {SUIBALL_CAP})\n"
+            f"🔒 <b>Max Level:</b> {MAX_LEVEL}",
+            main_menu_kb(user_id)
         )
         return
+
     if action == "leaderboard":
-        xp, rank = get_xp_and_rank(user_id)
-        lines = [build_leaderboard_text(10)]
-        if rank is not None:
-            p = players[user_id]
-            level = int(p.get("level", 1))
-            wins = int(p.get("wins", 0))
-            losses = int(p.get("losses", 0))
-            lines.append(f"\nYour Rank: #{rank}\nLevel: {level} | XP: {xp} | Record: {wins}W/{losses}L")
-        await _edit_query_message(query, "".join(lines), reply_markup=main_menu_kb(user_id))
+        await edit_menu_message(query, build_rankings_text(user_id, 10), main_menu_kb(user_id), disable_web_page_preview=True)
         return
+
     if action == "inventory":
         p = players[user_id]
         balls = int(p.get("suiballs", 0))
         champ_key = p.get("champ")
         champ_text = champ_full_name_for_player(user_id, champ_key) if champ_key in CHAMPS else "No champ"
-        await _edit_query_message(query, 
+        await edit_menu_message(
+            query,
             "🎒 <b>Inventory</b>\n\n"
             f"Trainer: <b>{html.escape(display_name(user_id))}</b>\n"
             f"Champ: <b>{html.escape(champ_text)}</b>\n\n"
             f"🧿 Suiballs: <b>{balls}</b>\n"
-            f"Daily gain: +{DAILY_SUIBALLS}  |  Cap: {SUIBALL_CAP}",
-            reply_markup=main_menu_kb(user_id),
-            parse_mode="HTML"
+            f"Daily gain: +{DAILY_SUIBALLS}  |  Cap: {SUIBALL_CAP}\n"
+            f"Max level: {MAX_LEVEL}",
+            main_menu_kb(user_id)
         )
         return
+
     if action == "heal":
         p = players[user_id]
         champ_key = p.get("champ")
         if champ_key not in CHAMPS:
-            await _edit_query_message(query, "You have no champ yet. Use /start", reply_markup=main_menu_kb(user_id))
+            await edit_menu_message(query, "You have no champ yet. Use /start", main_menu_kb(user_id))
             return
         lv = int(p.get("level", 1))
         mx = get_stats(champ_key, lv)["hp"]
         cur = get_or_init_current_hp(user_id)
         if cur >= mx:
-            await _edit_query_message(query, "✅ Your champ is already at full HP.", reply_markup=main_menu_kb(user_id))
+            await edit_menu_message(query, "✅ Your champ is already at full HP.", main_menu_kb(user_id))
             return
         balls = int(p.get("suiballs", 0))
         if balls <= 0:
-            await _edit_query_message(query, 
-                f"❌ You have no Suiballs.\nYou get {DAILY_SUIBALLS} per day (cap {SUIBALL_CAP}).\nUse /inventory.",
-                reply_markup=main_menu_kb(user_id)
-            )
+            await edit_menu_message(query, f"❌ You have no Suiballs.\nYou get {DAILY_SUIBALLS} per day (cap {SUIBALL_CAP}).\nUse /inventory.", main_menu_kb(user_id))
             return
         p["suiballs"] = balls - 1
         heal_to_full(user_id)
         save_players(players)
-        await _edit_query_message(query, 
-            f"🧿 Used 1 Suiball on {champ_full_name_for_player(user_id, champ_key)}!\n"
-            f"❤️ HP restored: {mx}/{mx}\n"
-            f"Remaining Suiballs: {p['suiballs']}",
-            reply_markup=main_menu_kb(user_id)
+        await edit_menu_message(
+            query,
+            f"🧿 Used 1 Suiball on <b>{html.escape(champ_full_name_for_player(user_id, champ_key))}</b>!\n"
+            f"❤️ <b>HP restored:</b> {mx}/{mx}\n"
+            f"🎒 <b>Remaining Suiballs:</b> {p['suiballs']}",
+            main_menu_kb(user_id)
         )
         return
+
     if action == "namechamp":
         start_nickname_prompt(user_id)
-        await _edit_query_message(query, 
+        await edit_menu_message(
+            query,
             "📝 <b>Name your champ</b>\n\n"
             "Use <code>/name YourName</code> in chat.\n"
             "Example: <code>/name Joyamon</code>",
-            reply_markup=naming_prompt_kb(),
-            parse_mode="HTML"
+            naming_prompt_kb()
         )
         return
+
     if action not in {"champs", "namechamp", "home"} and needs_nickname_prompt(user_id):
-        await _edit_query_message(query, nickname_required_text(user_id), reply_markup=naming_prompt_kb(), parse_mode="HTML")
+        await edit_menu_message(query, nickname_required_text(user_id), naming_prompt_kb())
         return
+
     if action == "champs":
         lines = ["📜 Starter Champs", ""]
         for _, c in CHAMPS.items():
@@ -1378,40 +1542,43 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append(f"{TYPE_EMOJI[c['type']]} {c['display']}  — type: {c['type']}")
             lines.append(f"   Moves: {moves}")
             lines.append("")
-        await _edit_query_message(query, "🌟 <b>Choose your starter</b>\n\n" + "\n".join(lines), reply_markup=choose_champ_kb(), parse_mode="HTML")
+        await edit_menu_message(query, "🌟 <b>Choose your starter</b>\n\n" + "\n".join(lines), choose_champ_kb())
         return
+
     if action == "fight":
-        await _edit_query_message(query, 
+        await edit_menu_message(
+            query,
             "⚔️ <b>Fight Menu</b>\n\n"
             "• Reply to a player with <code>/fight</code>\n"
             "• Or type <code>/fight @username</code>\n\n"
             "The challenged player must accept.\n"
             "During battle you pick moves with the buttons.\n"
             "Your champ name will be shown in the fight.",
-            reply_markup=main_menu_kb(user_id),
-            parse_mode="HTML"
+            main_menu_kb(user_id)
         )
         return
-    await _edit_query_message(query, menu_title(user_id), reply_markup=main_menu_kb(user_id), parse_mode="HTML")
+
+    await edit_menu_message(query, fancy_menu_caption(user_id), main_menu_kb(user_id))
 
 async def choose_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle starter selection from inline buttons."""
+    if not await ensure_allowed_chat(update, context):
+        return
     query = update.callback_query
     if not query:
         return
     await query.answer()
+
     user = await _bootstrap_user(update)
     champ_key = query.data.split("|", 1)[1].strip() if query.data else ""
     if champ_key not in CHAMPS:
-        await _edit_query_message(query, "Unknown champ.", reply_markup=main_menu_kb(user))
+        await edit_menu_message(query, "Unknown champ.", main_menu_kb(user))
         return
+
     if players[user].get("champ") in CHAMPS:
         c = champ_from_key(players[user]["champ"])
-        await _edit_query_message(query, 
-            f"⚠️ You already chose {c['display']}. This choice is permanent.",
-            reply_markup=main_menu_kb(user)
-        )
+        await edit_menu_message(query, f"⚠️ You already chose {c['display']}. This choice is permanent.", main_menu_kb(user))
         return
+
     players[user]["champ"] = champ_key
     players[user]["level"] = 1
     players[user]["xp"] = 0
@@ -1420,19 +1587,23 @@ async def choose_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     players[user]["champ_nickname"] = None
     set_current_hp(user, get_stats(champ_key, 1)["hp"])
     players[user]["suiballs"] = max(int(players[user].get("suiballs", 0)), 1)
+
     c = champ_from_key(champ_key)
     start_nickname_prompt(user)
     save_players(players)
-    await _edit_query_message(query, 
+    await edit_menu_message(
+        query,
         "📝 <b>Starter selected</b>\n\n"
         f"You picked <b>{c['display']}</b> {TYPE_EMOJI[c['type']]}.\n\n"
         "🚫 You cannot fight yet. First give your champ a custom name.\n\n"
         "Use <code>/name YourName</code>\n"
         "Example: <code>/name Joyamon</code>",
-        reply_markup=naming_prompt_kb(),
-        parse_mode="HTML"
+        naming_prompt_kb()
     )
+
 async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
     query = update.callback_query
     if not query or not query.message:
         return
@@ -1566,7 +1737,7 @@ def main():
     app.add_handler(CommandHandler("name", nickname))
     app.add_handler(CommandHandler("nickname", nickname))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, nickname_text_reply))
-    app.add_handler(CommandHandler("leaderboard", leaderboard))
+    app.add_handler(CommandHandler(["rankings", "leaderboard"], leaderboard))
     app.add_handler(CommandHandler("inventory", inventory))
     app.add_handler(CommandHandler("heal", heal))
     app.add_handler(CommandHandler("fight", fight))
