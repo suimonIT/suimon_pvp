@@ -617,7 +617,7 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
         eff_txt = " 🫧 Not very effective…"
 
     crit_txt = " CRIT!" if crit else ""
-    out.append(f"💢 Hit: <b>{dmg} damage</b>{crit_txt}{eff_txt}")
+    out.append(("html", f"💢 Hit: <b>{dmg} damage</b>{crit_txt}{eff_txt}"))
 
     if kind == "damage_burn":
         if defender.get("burn_turns", 0) == 0 and random.random() < float(move.get("burn_chance", 0.25)):
@@ -684,7 +684,8 @@ def _parse_target_user_id(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         arg = context.args[0].lstrip("@").lower().replace(" ", "")
         for uid, p in players.items():
             name = (p.get("name") or "").lower().replace(" ", "")
-            if name == arg:
+            username = (p.get("username") or "").lower().lstrip("@")
+            if arg and (arg == name or arg == username):
                 return uid
     return None
 
@@ -964,7 +965,7 @@ async def champs_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"   Moves: {moves}")
         lines.append("")
     if update.message:
-        await update.message.reply_text("🌟 <b>Choose your starter</b>\n\n" + "\n".join(lines), choose_champ_kb())
+        await update.message.reply_text("🌟 <b>Choose your starter</b>\n\n" + "\n".join(lines), choose_champ_kb(), parse_mode="HTML")
 
 async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_allowed_chat(update, context):
@@ -1335,10 +1336,13 @@ def _battle_render(state: Dict[str, Any]) -> str:
         body = body[-MAX_MESSAGE_CHARS:]
     return body
 
-async def _battle_push(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, line: str, delay: float = ACTION_DELAY, reply_markup: Optional[InlineKeyboardMarkup] = None, *, force_reposition: bool = False):
-    def esc(s: str) -> str:
-        return html.escape(s, quote=False)
-    state["log_lines"].append(esc(line))
+async def _battle_push(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, line, delay: float = ACTION_DELAY, reply_markup: Optional[InlineKeyboardMarkup] = None, *, force_reposition: bool = False, raw_html: bool = False):
+    if isinstance(line, tuple) and line[0] == "html":
+        state["log_lines"].append(line[1])
+    elif raw_html:
+        state["log_lines"].append(line)
+    else:
+        state["log_lines"].append(html.escape(str(line), quote=False))
     text = _battle_render(state)
     await _battle_reposition_message(context.bot, chat_id, state, text, reply_markup=reply_markup, force=force_reposition)
     if delay > 0:
@@ -1563,8 +1567,8 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     challenger_champ = champ_display_for_player(user, players[user].get("champ"))
 
     kb = InlineKeyboardMarkup([[
-        InlineKeyboardButton("✅ Accept", callback_data=f"suimon_accept|{user}"),
-        InlineKeyboardButton("❌ Decline", callback_data=f"suimon_decline|{user}"),
+        InlineKeyboardButton("✅ Accept", callback_data=f"suimon_accept|{user}|{target}"),
+        InlineKeyboardButton("❌ Decline", callback_data=f"suimon_decline|{user}|{target}"),
     ]])
 
     await update.message.reply_text(
@@ -1584,14 +1588,21 @@ async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await query.answer()
 
     data = query.data or ""
-    try:
-        action, challenger = data.split("|", 1)
-    except ValueError:
+    parts = data.split("|")
+    if len(parts) < 3:
         await query.edit_message_text("Invalid challenge data.")
         return
+    action, challenger, target = parts[0], parts[1], parts[2]
 
     chat_id = int(query.message.chat.id)
-    opponent = str(query.from_user.id)
+    clicker = str(query.from_user.id)
+
+    # Only the challenged player may accept or decline
+    if clicker != target:
+        await query.answer("This challenge is not for you.", show_alert=True)
+        return
+
+    opponent = clicker
 
     key = (chat_id, opponent)
     payload = PENDING_CHALLENGES.get(key)
