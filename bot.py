@@ -27,12 +27,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
 ALLOWED_GROUP_IDS = {-1003407035529, -1003839722848}
 # Only these user IDs + the Telegram group owner can use privileged admin commands
-PRIVILEGED_USER_IDS = {1638084297, 7105730933}
+PRIVILEGED_USER_IDS = {1638084297}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
 
 # In-memory session state (resets if the bot restarts)
 # Keyed by (chat_id, target_user_id) -> {"from": challenger_id, "ts": iso}
 PENDING_CHALLENGES: Dict[Tuple[int, str], Dict[str, Any]] = {}
+CHALLENGE_TIMEOUT = 60  # seconds
 
 # Active battles per chat (prevents overlap)
 ACTIVE_BATTLES: set[int] = set()
@@ -1315,9 +1316,68 @@ async def remove_suiball(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# =========================
-# XP + BATTLE (INTERACTIVE MOVES)
-# =========================
+
+# Pending reset confirmations: user_id -> timestamp
+PENDING_RESETS: Dict[str, float] = {}
+
+async def reset_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
+    caller = await _bootstrap_user(update)
+    if not update.message or not update.effective_chat:
+        return
+
+    chat_id = int(update.effective_chat.id)
+    if not await is_privileged_user(context.bot, chat_id, int(caller)):
+        await update.message.reply_text("❌ Only allowed user IDs can use this.")
+        return
+
+    # Check if confirmation is pending
+    pending_ts = PENDING_RESETS.get(caller)
+    now = time.monotonic()
+    if pending_ts and (now - pending_ts) < 30:
+        # Confirmed — execute reset
+        PENDING_RESETS.pop(caller, None)
+        count = 0
+        for uid, p in players.items():
+            if p.get("champ") not in CHAMPS:
+                continue
+            champ_key = p.get("champ")
+            champ_nickname = p.get("champ_nickname")
+            # Reset everything except champ and name
+            p["level"] = 1
+            p["xp"] = 0
+            p["wins"] = 0
+            p["losses"] = 0
+            p["suiballs"] = DAILY_SUIBALLS
+            p["last_daily"] = None
+            p["champ"] = champ_key
+            p["champ_nickname"] = champ_nickname
+            set_current_hp(uid, get_stats(champ_key, 1)["hp"])
+            count += 1
+        save_players(players)
+        await update.message.reply_text(
+            f"♻️ <b>Leaderboard reset complete!</b>\n\n"
+            f"<b>{count}</b> trainers reset to Level 1.\n"
+            "Champs and names were kept.",
+            parse_mode="HTML"
+        )
+    else:
+        # First call — ask for confirmation
+        PENDING_RESETS[caller] = now
+        await update.message.reply_text(
+            "⚠️ <b>Are you sure?</b>\n\n"
+            "This will reset <b>ALL players</b> to:\n"
+            "• Level 1, 0 XP\n"
+            "• 0 Wins / 0 Losses\n"
+            "• Full HP\n"
+            f"• {DAILY_SUIBALLS} Suiballs\n\n"
+            "Champs and names will be kept.\n\n"
+            "Type <code>/resetleaderboard</code> again within 30 seconds to confirm.",
+            parse_mode="HTML"
+        )
+
+
 
 def award_battle_xp(winner: str, loser: str) -> Tuple[int, int]:
     xp_winner = 45
@@ -1582,7 +1642,24 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    PENDING_CHALLENGES[(chat_id, target)] = {"from": user, "ts": datetime.now(TZ).isoformat()}
+    # Auto-expire any old pending challenge from this user in this chat
+    now = time.monotonic()
+    for k in list(PENDING_CHALLENGES.keys()):
+        if k[0] == chat_id and PENDING_CHALLENGES[k].get("from") == user:
+            if now - PENDING_CHALLENGES[k].get("ts_mono", 0) > CHALLENGE_TIMEOUT:
+                PENDING_CHALLENGES.pop(k, None)
+
+    # Check if target already has a pending challenge
+    existing = PENDING_CHALLENGES.get((chat_id, target))
+    if existing and now - existing.get("ts_mono", 0) < CHALLENGE_TIMEOUT:
+        await update.message.reply_text(
+            f"⏳ <b>{html.escape(display_name(target))}</b> already has a pending challenge. Wait for it to expire or be resolved.",
+            parse_mode="HTML",
+            reply_markup=main_menu_kb(user)
+        )
+        return
+
+    PENDING_CHALLENGES[(chat_id, target)] = {"from": user, "ts": datetime.now(TZ).isoformat(), "ts_mono": now}
 
     challenger_name = display_name(user, "Challenger")
     target_name = display_name(target, "Opponent")
@@ -1596,7 +1673,8 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"⚔️ <b>{html.escape(challenger_name)}</b> challenges <b>{html.escape(target_name)}</b>!\n"
         f"🧿 Champ: <b>{html.escape(challenger_champ)}</b>\n\n"
-        f"<b>{html.escape(target_name)}</b>, do you accept this fight request?",
+        f"<b>{html.escape(target_name)}</b>, do you accept this fight request?\n"
+        f"⏳ Expires in {CHALLENGE_TIMEOUT} seconds.",
         reply_markup=kb,
         parse_mode="HTML",
     )
@@ -1630,6 +1708,12 @@ async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     payload = PENDING_CHALLENGES.get(key)
     if not payload:
         await query.edit_message_text("⚠️ Challenge expired or already handled.")
+        return
+
+    # Check timeout
+    if time.monotonic() - payload.get("ts_mono", 0) > CHALLENGE_TIMEOUT:
+        PENDING_CHALLENGES.pop(key, None)
+        await query.edit_message_text("⏰ Challenge expired — too slow!")
         return
 
     expected = str(payload.get("from", ""))
@@ -1986,6 +2070,7 @@ def main():
     app.add_handler(CommandHandler("heal", heal))
     app.add_handler(CommandHandler("givesuiball", give_suiball))
     app.add_handler(CommandHandler("takesuiball", remove_suiball))
+    app.add_handler(CommandHandler("resetleaderboard", reset_leaderboard))
     app.add_handler(CommandHandler("fight", fight))
 
     app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu(?:\||$)"))
