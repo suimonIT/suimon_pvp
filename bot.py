@@ -254,7 +254,13 @@ async def edit_menu_message(query, caption: str, reply_markup: InlineKeyboardMar
             return
         except BadRequest:
             pass
-    await query.edit_message_text(caption, reply_markup=reply_markup, parse_mode="HTML", disable_web_page_preview=disable_web_page_preview)
+    try:
+        await query.edit_message_text(caption, reply_markup=reply_markup, parse_mode="HTML", disable_web_page_preview=disable_web_page_preview)
+    except BadRequest:
+        try:
+            await query.message.reply_text(caption, reply_markup=reply_markup, parse_mode="HTML", disable_web_page_preview=disable_web_page_preview)
+        except Exception:
+            pass
 
 
 def fancy_menu_caption(user_id: str) -> str:
