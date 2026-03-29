@@ -1670,7 +1670,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
         InlineKeyboardButton("❌ Decline", callback_data=f"suimon_decline|{user}|{target}"),
     ]])
 
-    await update.message.reply_text(
+    sent_msg = await update.message.reply_text(
         f"⚔️ <b>{html.escape(challenger_name)}</b> challenges <b>{html.escape(target_name)}</b>!\n"
         f"🧿 Champ: <b>{html.escape(challenger_champ)}</b>\n\n"
         f"<b>{html.escape(target_name)}</b>, do you accept this fight request?\n"
@@ -1678,6 +1678,24 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=kb,
         parse_mode="HTML",
     )
+
+    # Schedule auto-expiry
+    async def _expire_challenge():
+        await asyncio.sleep(CHALLENGE_TIMEOUT)
+        key = (chat_id, target)
+        if PENDING_CHALLENGES.get(key, {}).get("from") == user:
+            PENDING_CHALLENGES.pop(key, None)
+            try:
+                await sent_msg.edit_text(
+                    f"⏰ <b>Challenge expired!</b>\n"
+                    f"{html.escape(challenger_name)} challenged {html.escape(target_name)} but got no response.",
+                    parse_mode="HTML",
+                    reply_markup=None,
+                )
+            except Exception:
+                pass
+
+    asyncio.create_task(_expire_challenge())
 
 async def challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_allowed_chat(update, context):
