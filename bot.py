@@ -530,9 +530,9 @@ def heal_to_full(user_id: str) -> Tuple[int, int]:
 
 def type_mult(attacker_type: str, defender_type: str) -> Tuple[float, str]:
     if CHAMPS_BY_TYPE[attacker_type]["strong_against"] == defender_type:
-        return 1.5, "strong"
+        return 1.35, "strong"
     if CHAMPS_BY_TYPE[attacker_type]["weak_to"] == defender_type:
-        return 0.67, "weak"
+        return 0.74, "weak"
     return 1.0, "neutral"
 
 def pick_first_attacker(spd1: int, spd2: int) -> int:
@@ -541,9 +541,23 @@ def pick_first_attacker(spd1: int, spd2: int) -> int:
     p = clamp(0.5 + (spd1 - spd2) / 40.0, 0.25, 0.75)
     return 0 if random.random() < p else 1
 
+def level_gap_miss_penalty(attacker_level: int, defender_level: int) -> float:
+    """Extra miss chance for the higher-level attacker. 0 if attacker is equal or weaker."""
+    gap = attacker_level - defender_level
+    if gap <= 0:
+        return 0.0
+    # +4% per level gap, capped at 20%
+    return min(0.20, gap * 0.04)
+
 def calc_damage(attacker_atk: int, defender_def: int, level: int,
-                power: int, type_mult_: float, crit_mult: float) -> int:
+                power: int, type_mult_: float, crit_mult: float,
+                defender_level: int = 0) -> int:
     effective_def = max(1, int(defender_def))
+    # Underdog defense bonus: +3% per level the defender is below attacker, capped at 15%
+    gap = level - defender_level
+    if gap > 0 and defender_level > 0:
+        def_bonus = 1.0 + min(0.15, gap * 0.03)
+        effective_def = int(effective_def * def_bonus)
     base = ((2 * level / 5) + 2) * power * attacker_atk / effective_def
     base = (base / 6) + 2
     base *= random.uniform(0.92, 1.08)
@@ -565,7 +579,7 @@ def can_act(champ_state: Dict[str, Any]) -> Tuple[bool, List[str]]:
         return False, ["is asleep and can't move!"]
     return True, []
 
-def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_key: str, a_level: int, move: Dict[str, Any], attacker_name: Optional[str] = None, defender_name: Optional[str] = None) -> List[str]:
+def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_key: str, a_level: int, move: Dict[str, Any], attacker_name: Optional[str] = None, defender_name: Optional[str] = None, defender_level: int = 0) -> List[str]:
     out: List[str] = []
 
     a = champ_from_key(a_key)
@@ -573,9 +587,16 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
     a_name = attacker_name or a["display"]
     d_name = defender_name or d["display"]
 
-    if random.random() > float(move.get("acc", 0.9)):
+    # Level-gap miss penalty: higher-level attacker misses more often vs lower-level
+    base_miss = 1.0 - float(move.get("acc", 0.9))
+    extra_miss = level_gap_miss_penalty(a_level, defender_level)
+    effective_miss = min(0.60, base_miss + extra_miss)
+    if random.random() < effective_miss:
         out.append(f"{TYPE_EMOJI[a['type']]} {a_name} used {move['name']}!")
-        out.append("💨 It missed!")
+        if extra_miss > 0:
+            out.append("💨 Missed! (underestimated the opponent)")
+        else:
+            out.append("💨 It missed!")
         return out
 
     out.append(f"{TYPE_EMOJI[a['type']]} {a_name} {random.choice(move.get('text', ['attacks!']))}")
@@ -607,6 +628,7 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
         power=power,
         type_mult_=mult,
         crit_mult=crit_mult,
+        defender_level=defender_level,
     )
     defender["hp"] -= dmg
 
@@ -1903,7 +1925,8 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
             before_hp = int(defender["hp"])
             defender_user = state["opponent"] if clicker == state["user"] else state["user"]
-            for line in do_move(attacker, defender, a_key, d_key, a_lvl, move, attacker_name=a_name, defender_name=champ_display_for_player(defender_user, d_key)):
+            d_lvl = state["lv2"] if clicker == state["user"] else state["lv1"]
+            for line in do_move(attacker, defender, a_key, d_key, a_lvl, move, attacker_name=a_name, defender_name=champ_display_for_player(defender_user, d_key), defender_level=d_lvl):
                 await _battle_push(chat_id, state, context, line, delay=0.55, reply_markup=None)
             _ = max(0, before_hp - int(defender["hp"]))
 
