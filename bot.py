@@ -25,7 +25,7 @@ TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
-ALLOWED_GROUP_IDS = {-1002664937769, -1003407035529, -1003839722848}
+ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848}
 # Only these user IDs + the Telegram group owner can use privileged admin commands
 PRIVILEGED_USER_IDS = {1638084297, 7105730933}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
@@ -1613,6 +1613,75 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
     await _battle_prompt_turn(chat_id, state, context)
 
 # =========================
+# ADMIN: CHANGE CHAMP
+# =========================
+
+async def change_champ(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
+    admin = await _bootstrap_user(update)
+    if not update.message or not update.effective_chat:
+        return
+
+    chat_id = int(update.effective_chat.id)
+    if not await is_privileged_user(context.bot, chat_id, int(admin)):
+        await update.message.reply_text("❌ Only allowed user IDs and the group owner can use this.")
+        return
+
+    # Usage: /changechamp @user <champname>
+    # or reply to a message: /changechamp <champname>
+    target: Optional[str] = None
+    champ_arg: Optional[str] = None
+
+    if update.message.reply_to_message and update.message.reply_to_message.from_user:
+        target = str(update.message.reply_to_message.from_user.id)
+        champ_arg = context.args[0].strip() if context.args else None
+    else:
+        if not context.args or len(context.args) < 2:
+            await update.message.reply_text(
+                "⚠️ Usage:\n"
+                "<code>/changechamp @username champname</code>\n"
+                "or reply to a message:\n"
+                "<code>/changechamp champname</code>\n\n"
+                "Valid champs: <code>suimander</code>, <code>suiqrtle</code>, <code>basaurimon</code>",
+                parse_mode="HTML"
+            )
+            return
+        target, _ = _parse_target_from_args(chat_id, context.args)
+        champ_arg = context.args[1].strip() if len(context.args) > 1 else None
+
+    if not target or target not in players:
+        await update.message.reply_text("❌ Player not found.")
+        return
+
+    new_champ = champ_key_from_input(champ_arg or "")
+    if not new_champ:
+        await update.message.reply_text(
+            f"❌ Unknown champ: <code>{html.escape(champ_arg or '')}</code>\n\n"
+            "Valid champs: <code>suimander</code>, <code>suiqrtle</code>, <code>basaurimon</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    old_champ_key = players[target].get("champ")
+    old_champ_name = champ_from_key(old_champ_key)["display"] if old_champ_key in CHAMPS else "None"
+    new_champ_data = champ_from_key(new_champ)
+    level = int(players[target].get("level", 1))
+
+    players[target]["champ"] = new_champ
+    set_current_hp(target, get_stats(new_champ, level)["hp"])
+    save_players(players)
+
+    target_name = display_name(target)
+    await update.message.reply_text(
+        f"✅ <b>{html.escape(target_name)}</b>'s champ changed!\n\n"
+        f"Old: <b>{html.escape(old_champ_name)}</b>\n"
+        f"New: <b>{new_champ_data['display']}</b> {TYPE_EMOJI[new_champ_data['type']]}\n\n"
+        f"⚠️ HP reset to full (Lv.{level}). Nickname kept.",
+        parse_mode="HTML"
+    )
+
+# =========================
 # PvP COMMANDS
 # =========================
 
@@ -2095,6 +2164,7 @@ def main():
     app.add_handler(CommandHandler("givesuiball", give_suiball))
     app.add_handler(CommandHandler("takesuiball", remove_suiball))
     app.add_handler(CommandHandler("resetleaderboard", reset_leaderboard))
+    app.add_handler(CommandHandler("changechamp", change_champ))
     app.add_handler(CommandHandler("fight", fight))
 
     app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu(?:\||$)"))
