@@ -151,6 +151,15 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+PROFESSOR_JDL_LINES = [
+    "🔬 <b>Professor JDL:</b> Wow Trainers, you're giving everything! Nurse Joy is having a heart attack — and you know I need her desperately!",
+    "🔬 <b>Professor JDL:</b> Mamma Mia! I haven't seen a fight like this even in Charleston among drug addicts — keep pushing!",
+    "🔬 <b>Professor JDL:</b> I've seen gang shootings that were more humane than this battle — someone stop these trainers!",
+    "🔬 <b>Professor JDL:</b> My lab assistant Ninja just fainted watching this — and she survived THREE Hydro Bursts last week!",
+    "🔬 <b>Professor JDL:</b> At this point Nurse Joy has locked herself in the bathroom and won't come out!",
+    "🔬 <b>Professor JDL:</b> I've done things for science I'm not proud of — but watching this fight might be the worst of them!",
+]
+
 TYPE_EMOJI = {"fire": "🔥", "water": "💧", "nature": "🌿"}
 STATUS_EMOJI = {"burn": "🔥", "sleep": "💤"}
 
@@ -537,9 +546,9 @@ def heal_to_full(user_id: str) -> Tuple[int, int]:
 
 def type_mult(attacker_type: str, defender_type: str) -> Tuple[float, str]:
     if CHAMPS_BY_TYPE[attacker_type]["strong_against"] == defender_type:
-        return 1.35, "strong"
+        return 1.20, "strong"
     if CHAMPS_BY_TYPE[attacker_type]["weak_to"] == defender_type:
-        return 0.74, "weak"
+        return 0.85, "weak"
     return 1.0, "neutral"
 
 def pick_first_attacker(spd1: int, spd2: int) -> int:
@@ -565,7 +574,7 @@ def calc_damage(attacker_atk: int, defender_def: int, level: int,
     if gap > 0 and defender_level > 0:
         def_bonus = 1.0 + min(0.15, gap * 0.03)
         effective_def = int(effective_def * def_bonus)
-    base = ((2 * level / 5) + 2) * power * attacker_atk / effective_def
+    base = ((2 * level / 5) + 2) * power * attacker_atk / (effective_def * 1.25)
     base = (base / 6) + 2
     base *= random.uniform(0.92, 1.08)
     dmg = int(round(base * type_mult_ * crit_mult))
@@ -1386,7 +1395,20 @@ async def reset_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def award_battle_xp(winner: str, loser: str) -> Tuple[int, int]:
+    winner_level = int(players[winner].get("level", 1))
+    loser_level = int(players[loser].get("level", 1))
+    level_diff = loser_level - winner_level  # positive = winner was lower level
+
     xp_winner = 45
+    if level_diff >= 3:
+        xp_winner = 75
+    elif level_diff == 2:
+        xp_winner = 65
+    elif level_diff == 1:
+        xp_winner = 55
+    elif level_diff < 0:
+        xp_winner = 35  # higher level beating lower level = less XP
+
     xp_loser = 20
     players[winner]["wins"] = int(players[winner].get("wins", 0)) + 1
     players[loser]["losses"] = int(players[loser].get("losses", 0)) + 1
@@ -1394,9 +1416,8 @@ def award_battle_xp(winner: str, loser: str) -> Tuple[int, int]:
     grant_xp_with_hp_adjust(loser, xp_loser)
     return xp_winner, xp_loser
 
-def _battle_move_keyboard(chat_id: int, champ_key: str) -> InlineKeyboardMarkup:
+def _battle_move_keyboard(chat_id: int, champ_key: str, player_id: str) -> InlineKeyboardMarkup:
     moves = champ_from_key(champ_key)["moves"]
-    # 2x2 grid + forfeit row
     rows: List[List[InlineKeyboardButton]] = []
     row: List[InlineKeyboardButton] = []
     for idx, m in enumerate(moves[:4]):
@@ -1406,6 +1427,9 @@ def _battle_move_keyboard(chat_id: int, champ_key: str) -> InlineKeyboardMarkup:
             row = []
     if row:
         rows.append(row)
+    balls = int(players.get(player_id, {}).get("suiballs", 0))
+    ball_label = f"🧿 Use Suiball ({balls})" if balls > 0 else "🧿 No Suiballs"
+    rows.append([InlineKeyboardButton(ball_label, callback_data=f"heal|{chat_id}")])
     rows.append([InlineKeyboardButton("🏳️ Forfeit", callback_data=f"ff|{chat_id}")])
     return InlineKeyboardMarkup(rows)
 
@@ -1472,11 +1496,15 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
     if state["actions"] % 2 == 0:
         state["round"] += 1
         await _battle_push(chat_id, state, context, f"━━━ Round {state['round']} ━━━", delay=0.35)
+        if random.random() < 0.50:
+            jdl_line = random.choice(PROFESSOR_JDL_LINES)
+            await _battle_push(chat_id, state, context, jdl_line, delay=0.6, raw_html=True)
 
     name = _battle_turn_name(state)
     champ_key = _battle_turn_champ_key(state)
-    champ_name = champ_display_for_player(_battle_turn_user(state), champ_key)
-    kb = _battle_move_keyboard(chat_id, champ_key)
+    turn_user = _battle_turn_user(state)
+    champ_name = champ_display_for_player(turn_user, champ_key)
+    kb = _battle_move_keyboard(chat_id, champ_key, turn_user)
     await _battle_push(chat_id, state, context, f"🎯 {name}'s turn — choose a move for {champ_name}:", delay=0.05, reply_markup=kb, force_reposition=True)
 
 async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, winner: str, loser: str):
@@ -2053,6 +2081,33 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await _end_battle(chat_id, state, context, winner=winner, loser=loser)
         return
 
+    if kind == "heal":
+        turn_user = _battle_turn_user(state)
+        if clicker != turn_user:
+            await query.answer("Not your turn.", show_alert=False)
+            return
+        balls = int(players.get(clicker, {}).get("suiballs", 0))
+        if balls <= 0:
+            await query.answer("❌ You have no Suiballs!", show_alert=True)
+            return
+        state["resolving"] = True
+        try:
+            players[clicker]["suiballs"] = balls - 1
+            healer_champ_state = _battle_turn_champ_state(state)
+            healer_champ_state["hp"] = healer_champ_state["max_hp"]
+            healer_name = champ_display_for_player(clicker, _battle_turn_champ_key(state))
+            await _battle_reposition_message(context.bot, chat_id, state, _battle_render(state), reply_markup=None)
+            await _battle_push(chat_id, state, context, f"🧿 {display_name(clicker)} used a Suiball on {healer_name}! HP fully restored!", delay=0.5, reply_markup=None)
+            await _battle_push_hud(chat_id, state, context, delay=0.25, reply_markup=None)
+            state["actions"] += 1
+            _battle_next_turn(state)
+            await _battle_prompt_turn(chat_id, state, context)
+        finally:
+            latest = BATTLES.get(chat_id)
+            if latest is state:
+                state["resolving"] = False
+        return
+
     if kind != "mv" or len(parts) != 3:
         return
 
@@ -2170,7 +2225,7 @@ def main():
     app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu(?:\||$)"))
     app.add_handler(CallbackQueryHandler(choose_callback, pattern=r"^choose\|"))
     app.add_handler(CallbackQueryHandler(challenge_callback, pattern=r"^suimon_(accept|decline)\|"))
-    app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff)\|"))
+    app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff|heal)\|"))
 
     print("Suimon Arena bot running...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
