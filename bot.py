@@ -25,7 +25,7 @@ TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
-ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848, -1003407035529}
+ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848}
 # Only these user IDs + the Telegram group owner can use privileged admin commands
 PRIVILEGED_USER_IDS = {1638084297, 7105730933}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
@@ -152,12 +152,12 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
 }
 
 PROFESSOR_JDL_LINES = [
-    "🔬 <b>Professor JDL:</b> Wow Trainers, you're giving everything! Nurse Joy is having a heart attack — and you know I need her desperately!",
-    "🔬 <b>Professor JDL:</b> Mamma Mia! I haven't seen a fight like this even in Charleston among drug addicts — keep pushing!",
-    "🔬 <b>Professor JDL:</b> I've seen gang shootings that were more humane than this battle — someone stop these trainers!",
-    "🔬 <b>Professor JDL:</b> My lab assistant Ninja just fainted watching this — and she survived THREE Hydro Bursts last week!",
-    "🔬 <b>Professor JDL:</b> At this point Nurse Joy has locked herself in the bathroom and won't come out!",
-    "🔬 <b>Professor JDL:</b> I've done things for science I'm not proud of — but watching this fight might be the worst of them!",
+    "👨‍🔬 <b>Professor JDL:</b> Wow Trainers, you're giving everything! Nurse Joy is having a heart attack — and you know I need her desperately!",
+    "👨‍🔬 <b>Professor JDL:</b> Mamma Mia! I haven't seen a fight like this even in Charleston among drug addicts — keep pushing!",
+    "👨‍🔬 <b>Professor JDL:</b> I've seen gang shootings that were more humane than this battle — someone stop these trainers!",
+    "👨‍🔬 <b>Professor JDL:</b> My lab assistant Ninja just fainted watching this — and she survived THREE Hydro Bursts last week!",
+    "👨‍🔬 <b>Professor JDL:</b> At this point Nurse Joy has locked herself in the bathroom and won't come out!",
+    "👨‍🔬 <b>Professor JDL:</b> I've done things for science I'm not proud of — but watching this fight might be the worst of them!",
 ]
 
 TYPE_EMOJI = {"fire": "🔥", "water": "💧", "nature": "🌿"}
@@ -1498,7 +1498,8 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
         await _battle_push(chat_id, state, context, f"━━━ Round {state['round']} ━━━", delay=0.35)
         if random.random() < 0.50:
             jdl_line = random.choice(PROFESSOR_JDL_LINES)
-            await _battle_push(chat_id, state, context, jdl_line, delay=0.6, raw_html=True)
+            await _battle_push(chat_id, state, context, "", delay=0.1, raw_html=True)
+            await _battle_push(chat_id, state, context, jdl_line, delay=5.0, raw_html=True)
 
     name = _battle_turn_name(state)
     champ_key = _battle_turn_champ_key(state)
@@ -1708,6 +1709,40 @@ async def change_champ(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"⚠️ HP reset to full (Lv.{level}). Nickname kept.",
         parse_mode="HTML"
     )
+
+async def endfight(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
+    admin = await _bootstrap_user(update)
+    if not update.message or not update.effective_chat:
+        return
+    chat_id = int(update.effective_chat.id)
+    if not await is_privileged_user(context.bot, chat_id, int(admin)):
+        await update.message.reply_text("❌ Only privileged users can use this.")
+        return
+
+    state = BATTLES.get(chat_id)
+    if not state:
+        await update.message.reply_text("❌ No active battle in this chat.")
+        return
+
+    # Usage: /endfight @winner
+    target, _ = _parse_target_from_args(chat_id, context.args or [])
+    if not target:
+        if update.message.reply_to_message and update.message.reply_to_message.from_user:
+            target = str(update.message.reply_to_message.from_user.id)
+
+    if not target or target not in (state["user"], state["opponent"]):
+        await update.message.reply_text(
+            "⚠️ Usage: <code>/endfight @winner</code> or reply to winner's message.",
+            parse_mode="HTML"
+        )
+        return
+
+    winner = target
+    loser = state["opponent"] if winner == state["user"] else state["user"]
+    await update.message.reply_text(f"🛑 Admin ended the fight. Winner: <b>{html.escape(display_name(winner))}</b>", parse_mode="HTML")
+    await _end_battle(chat_id, state, context, winner=winner, loser=loser)
 
 # =========================
 # PvP COMMANDS
@@ -2220,6 +2255,7 @@ def main():
     app.add_handler(CommandHandler("takesuiball", remove_suiball))
     app.add_handler(CommandHandler("resetleaderboard", reset_leaderboard))
     app.add_handler(CommandHandler("changechamp", change_champ))
+    app.add_handler(CommandHandler("endfight", endfight))
     app.add_handler(CommandHandler("fight", fight))
 
     app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu(?:\||$)"))
