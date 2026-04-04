@@ -25,7 +25,7 @@ TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
-ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848, -1003407035529}
+ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848}
 # Only these user IDs + the Telegram group owner can use privileged admin commands
 PRIVILEGED_USER_IDS = {1638084297, 7105730933}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
@@ -1498,15 +1498,14 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
         await _battle_push(chat_id, state, context, f"━━━ Round {state['round']} ━━━", delay=0.35)
         if random.random() < 0.50:
             jdl_line = random.choice(PROFESSOR_JDL_LINES)
-            await _battle_push(chat_id, state, context, "", delay=0.1, raw_html=True)
-            await _battle_push(chat_id, state, context, jdl_line, delay=5.0, raw_html=True)
+            await _battle_push(chat_id, state, context, "\n" + jdl_line, delay=10.0, raw_html=True)
 
     name = _battle_turn_name(state)
     champ_key = _battle_turn_champ_key(state)
     turn_user = _battle_turn_user(state)
     champ_name = champ_display_for_player(turn_user, champ_key)
     kb = _battle_move_keyboard(chat_id, champ_key, turn_user)
-    await _battle_push(chat_id, state, context, f"🎯 {name}'s turn — choose a move for {champ_name}:", delay=0.05, reply_markup=kb, force_reposition=True)
+    await _battle_push(chat_id, state, context, f"\n🎯 {name}'s turn — choose a move for {champ_name}:", delay=0.05, reply_markup=kb, force_reposition=True)
 
 async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, winner: str, loser: str):
     # Persist HP + XP
