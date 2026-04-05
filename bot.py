@@ -25,7 +25,7 @@ TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
-ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848, -1003407035529}
+ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848}
 # Only these user IDs + the Telegram group owner can use privileged admin commands
 PRIVILEGED_USER_IDS = {1638084297, 7105730933}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
@@ -621,7 +621,7 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
 
     if kind == "status_sleep":
         if defender.get("sleep_turns", 0) > 0:
-            out.append(f"{STATUS_EMOJI['sleep']} {d_name} is already asleep!")
+            out.append(f"{STATUS_EMOJI['sleep']} {d_name} is already sleeping! Move wasted.")
             return out
         turns = move.get("sleep_turns", (1, 2))
         sleep_t = random.randint(int(turns[0]), int(turns[1]))
@@ -1496,7 +1496,7 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
     if state["actions"] % 2 == 0:
         state["round"] += 1
         await _battle_push(chat_id, state, context, f"━━━ Round {state['round']} ━━━", delay=0.35)
-        if random.random() < 0.50:
+        if state["round"] >= 2 and random.random() < 0.50:
             jdl_line = random.choice(PROFESSOR_JDL_LINES)
             await _battle_push(chat_id, state, context, "\n" + jdl_line, delay=10.0, raw_html=True)
 
