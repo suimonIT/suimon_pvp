@@ -1258,7 +1258,7 @@ async def cutforsuimon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu_kb(user)
     )
 
-
+async def give_suiball(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_allowed_chat(update, context):
         return
     giver = await _bootstrap_user(update)
