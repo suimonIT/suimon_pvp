@@ -1766,6 +1766,12 @@ async def tournamentoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tournament_state["active"] = False
     save_tournament(tournament_state)
 
+    # Reset all players' suiballs to normal cap
+    for uid, p in players.items():
+        if p.get("champ") in CHAMPS:
+            p["suiballs"] = min(int(p.get("suiballs", 0)), SUIBALL_CAP)
+    save_players(players)
+
     # Get leaderboard
     top = get_leaderboard(10)
     if not top:
