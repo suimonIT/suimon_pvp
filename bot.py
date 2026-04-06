@@ -1224,7 +1224,18 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     rankings_text = build_rankings_text(user, 10)
-    await update.message.reply_text(rankings_text, reply_markup=main_menu_kb(user), parse_mode="HTML", disable_web_page_preview=True)
+    rankings_image_candidates = ("rankings.jpg", "rankings.JPG", "rankings.png")
+    rankings_image = None
+    for name in rankings_image_candidates:
+        candidate = os.path.join(BASE_DIR, name)
+        if os.path.isfile(candidate):
+            rankings_image = candidate
+            break
+    if rankings_image:
+        with open(rankings_image, "rb") as photo:
+            await update.message.reply_photo(photo=photo, caption=rankings_text, reply_markup=main_menu_kb(user), parse_mode="HTML")
+    else:
+        await update.message.reply_text(rankings_text, reply_markup=main_menu_kb(user), parse_mode="HTML", disable_web_page_preview=True)
 
 
 async def inventory(update: Update, context: ContextTypes.DEFAULT_TYPE):
