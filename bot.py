@@ -46,7 +46,7 @@ BATTLES: Dict[int, Dict[str, Any]] = {}
 # Text pacing (seconds)
 # -------------------------
 INTRO_DELAY = 0.8
-REPOSITION_COOLDOWN = 3.5
+REPOSITION_COOLDOWN = 8.0
 COUNTDOWN_STEP_DELAY = 0.55
 ACTION_DELAY = 0.70
 HUD_DELAY = 0.45
@@ -58,9 +58,38 @@ MAX_MESSAGE_CHARS = 3800  # keep under Telegram 4096 edit limit
 
 # Daily items
 DAILY_SUIBALLS = 2
+DAILY_SUIBALLS_TOURNAMENT = 10
 SUIBALL_CAP = 5
+SUIBALL_CAP_TOURNAMENT = 200
 MAX_LEVEL = 10
 TZ = timezone.utc
+
+# Tournament state (persisted in tournament.json)
+TOURNAMENT_FILE = os.path.join(BASE_DIR, "tournament.json")
+
+def load_tournament() -> Dict[str, Any]:
+    if not os.path.exists(TOURNAMENT_FILE):
+        return {"active": False}
+    try:
+        with open(TOURNAMENT_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {"active": False}
+
+def save_tournament(data: Dict[str, Any]) -> None:
+    with open(TOURNAMENT_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+tournament_state: Dict[str, Any] = load_tournament()
+
+def is_tournament_active() -> bool:
+    return tournament_state.get("active", False)
+
+def get_daily_suiballs() -> int:
+    return DAILY_SUIBALLS_TOURNAMENT if is_tournament_active() else DAILY_SUIBALLS
+
+def get_suiball_cap() -> int:
+    return SUIBALL_CAP_TOURNAMENT if is_tournament_active() else SUIBALL_CAP
 
 # =========================
 # CHAMPS (Suimon Starter Set)
@@ -158,7 +187,24 @@ PROFESSOR_JDL_LINES = [
     "👨‍🔬 <b>Professor JDL:</b> My lab assistant Ninja just fainted watching this — and she survived THREE Hydro Bursts last week!",
     "👨‍🔬 <b>Professor JDL:</b> At this point Nurse Joy has locked herself in the bathroom and won't come out!",
     "👨‍🔬 <b>Professor JDL:</b> I've done things for science I'm not proud of — but watching this fight might be the worst of them!",
+    "👨‍🔬 <b>Professor JDL:</b> I called my therapist mid-battle. She hung up.",
+    "👨‍🔬 <b>Professor JDL:</b> This is not science anymore. This is personal.",
+    "👨‍🔬 <b>Professor JDL:</b> I've seen Suimon die in my lab. This is worse.",
+    "👨‍🔬 <b>Professor JDL:</b> My grant money did NOT cover witnessing this.",
+    "👨‍🔬 <b>Professor JDL:</b> Even Team Rocket would call this excessive.",
+    "👨‍🔬 <b>Professor JDL:</b> I haven't eaten in 3 days watching these battles. Worth it.",
+    "👨‍🔬 <b>Professor JDL:</b> Nurse Joy just quit. This is your fault.",
+    "👨‍🔬 <b>Professor JDL:</b> I studied 12 years for this. 12 YEARS.",
+    "👨‍🔬 <b>Professor JDL:</b> The Suimon League banned me from attending live battles. I can see why now.",
 ]
+_last_jdl_index: int = -1
+
+def pick_jdl_line() -> str:
+    global _last_jdl_index
+    available = [i for i in range(len(PROFESSOR_JDL_LINES)) if i != _last_jdl_index]
+    idx = random.choice(available)
+    _last_jdl_index = idx
+    return PROFESSOR_JDL_LINES[idx]
 
 TYPE_EMOJI = {"fire": "🔥", "water": "💧", "nature": "🌿"}
 STATUS_EMOJI = {"burn": "🔥", "sleep": "💤"}
@@ -419,7 +465,14 @@ def needs_nickname_prompt(player_id: str) -> bool:
     p = players.get(player_id, {})
     return p.get("champ") in CHAMPS and not get_champ_nickname(player_id)
 
-def hp_bar(current: int, max_hp: int, length: int = 8) -> str:
+def get_badges_display(user_id: str) -> str:
+    badges = players.get(user_id, {}).get("badges", [])
+    if not badges:
+        return ""
+    badge_map = {"cascade": "🌊"}
+    return " ".join(badge_map.get(b, "🏅") for b in badges)
+
+
     mx = max(1, int(max_hp))
     cur = max(0, min(int(current), mx))
     filled = int(round((cur / mx) * length))
@@ -506,7 +559,7 @@ def ensure_daily(user_id: str) -> bool:
     if p.get("last_daily") == t:
         return False
     current = int(p.get("suiballs", 0))
-    p["suiballs"] = min(SUIBALL_CAP, current + DAILY_SUIBALLS)
+    p["suiballs"] = min(get_suiball_cap(), current + get_daily_suiballs())
     p["last_daily"] = t
     return True
 
@@ -1066,15 +1119,17 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     balls = int(p.get("suiballs", 0))
     fainted = " (FAINTED)" if cur_hp <= 0 else ""
     champ_label = champ_full_name_for_player(user, champ_key)
+    badges_txt = get_badges_display(user)
     await update.message.reply_text(
         "🪪 <b>Trainer Card</b>\n\n"
         f"👤 {display_name(user)}\n"
-        f"🏅 Record: {w}W / {l}L\n\n"
-        f"{TYPE_EMOJI[champ['type']]} {champ_label} (Lv.{lv}){fainted}\n"
+        f"🏅 Record: {w}W / {l}L\n"
+        + (f"🎖️ Badges: {badges_txt}\n" if badges_txt else "") +
+        f"\n{TYPE_EMOJI[champ['type']]} {champ_label} (Lv.{lv}){fainted}\n"
         f"❤️ HP: {cur_hp}/{stats['hp']} ({hp_bar(cur_hp, stats['hp'])})\n"
         f"✨ XP: {xp}/{need if lv < MAX_LEVEL else 0}\n"
         f"📈 Stats: ATK {stats['atk']} | DEF {stats['def']} | SPD {stats['spd']}\n\n"
-        f"🎒 Suiballs: {balls} (daily +{DAILY_SUIBALLS}, cap {SUIBALL_CAP})\n"
+        f"🎒 Suiballs: {balls} (daily +{get_daily_suiballs()}, cap {get_suiball_cap()})\n"
         f"🔒 Max Level: {MAX_LEVEL}",
         reply_markup=main_menu_kb(user),
         parse_mode="HTML"
@@ -1249,7 +1304,7 @@ async def cutforsuimon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     current = int(p.get("suiballs", 0))
-    p["suiballs"] = min(SUIBALL_CAP, current + 1)
+    p["suiballs"] = min(get_suiball_cap(), current + 1)
     p["last_cut"] = t
     save_players(players)
 
@@ -1523,7 +1578,7 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
         state["round"] += 1
         await _battle_push(chat_id, state, context, f"━━━ Round {state['round']} ━━━", delay=0.35)
         if state["round"] >= 2 and random.random() < 0.50:
-            jdl_line = random.choice(PROFESSOR_JDL_LINES)
+            jdl_line = pick_jdl_line()
             await _battle_push(chat_id, state, context, "\n" + jdl_line, delay=10.0, raw_html=True)
 
     name = _battle_turn_name(state)
@@ -1531,7 +1586,7 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
     turn_user = _battle_turn_user(state)
     champ_name = champ_display_for_player(turn_user, champ_key)
     kb = _battle_move_keyboard(chat_id, champ_key, turn_user)
-    await _battle_push(chat_id, state, context, f"\n🎯 {name}'s turn — choose a move for {champ_name}:", delay=0.05, reply_markup=kb, force_reposition=True)
+    await _battle_push(chat_id, state, context, f"\n🎯 {name}'s turn — choose a move for {champ_name}:", delay=0.05, reply_markup=kb, force_reposition=False)
 
 async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, winner: str, loser: str):
     # Persist HP + XP
@@ -1547,13 +1602,6 @@ async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes
     await _battle_push(chat_id, state, context, "The dust settles…", delay=0.45, reply_markup=None)
     await _battle_push(chat_id, state, context, f"🏆 Winner: {w_name} with {w_champ}!", delay=0.45, reply_markup=None)
     await _battle_push(chat_id, state, context, f"🎁 XP: {xp_w} (Winner) / {xp_l} (Loser)", delay=0.35, reply_markup=None)
-
-    max1_after = int(get_stats(state["c1_key"], int(players[state["user"]].get("level", 1)))["hp"])
-    max2_after = int(get_stats(state["c2_key"], int(players[state["opponent"]].get("level", 1)))["hp"])
-
-    await _battle_push(chat_id, state, context, "📌 Persistent HP saved", delay=0.25, reply_markup=None)
-    await _battle_push(chat_id, state, context, f"❤️ {champ_display_for_player(state['user'], state['c1_key'])}: {max(state['champ1']['hp'],0)}/{max1_after}", delay=0.15, reply_markup=None)
-    await _battle_push(chat_id, state, context, f"💙 {champ_display_for_player(state['opponent'], state['c2_key'])}: {max(state['champ2']['hp'],0)}/{max2_after}", delay=0.25, reply_markup=None)
 
     lvlups = []
     if players[state["user"]].get("just_leveled"):
@@ -1670,7 +1718,86 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
 # ADMIN: CHANGE CHAMP
 # =========================
 
-async def change_champ(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def tournamenton(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
+    admin = await _bootstrap_user(update)
+    if not update.message or not update.effective_chat:
+        return
+    chat_id = int(update.effective_chat.id)
+    if not await is_privileged_user(context.bot, chat_id, int(admin)):
+        await update.message.reply_text("❌ Only privileged users can use this.")
+        return
+
+    tournament_state["active"] = True
+    save_tournament(tournament_state)
+
+    # Give everyone 200 suiballs
+    named = []
+    for uid, p in players.items():
+        p["suiballs"] = 200
+        if p.get("champ") in CHAMPS and p.get("champ_nickname"):
+            named.append(display_name(uid))
+    save_players(players)
+
+    await update.message.reply_text(
+        "🏆 <b>TOURNAMENT HAS STARTED!</b> 🏆\n\n"
+        "Every Trainer has received <b>200 Suiballs</b>!\n\n"
+        "Play <b>200 games</b> and finish in the <b>TOP 3</b> to win the Prize.\n\n"
+        "Remember — <b>#1</b> receives the coveted\n"
+        "🌊 <b>Cascade Badge</b> 🌊\n\n"
+        "Daily Suiballs are now <b>+10</b> during the Tournament.\n\n"
+        "May the best Trainer win. Good luck! ⚔️",
+        parse_mode="HTML"
+    )
+
+async def tournamentoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
+    admin = await _bootstrap_user(update)
+    if not update.message or not update.effective_chat:
+        return
+    chat_id = int(update.effective_chat.id)
+    if not await is_privileged_user(context.bot, chat_id, int(admin)):
+        await update.message.reply_text("❌ Only privileged users can use this.")
+        return
+
+    tournament_state["active"] = False
+    save_tournament(tournament_state)
+
+    # Get leaderboard
+    top = get_leaderboard(10)
+    if not top:
+        await update.message.reply_text("🏁 Tournament ended. No players found.")
+        return
+
+    # Award Cascade Badge to #1
+    winner_id = top[0][0]
+    winner_name = top[0][1]
+    if "badges" not in players[winner_id]:
+        players[winner_id]["badges"] = []
+    if "cascade" not in players[winner_id]["badges"]:
+        players[winner_id]["badges"].append("cascade")
+    save_players(players)
+
+    # Build leaderboard text
+    lb_lines = []
+    medals = ["🥇", "🥈", "🥉"]
+    for i, (uid, name, xp, level, wins, losses) in enumerate(top):
+        medal = medals[i] if i < 3 else f"{i+1}."
+        lb_lines.append(f"{medal} <b>{html.escape(name)}</b> — Lv.{level} • {wins}W/{losses}L")
+
+    await update.message.reply_text(
+        "🏁 <b>TOURNAMENT OVER!</b>\n\n"
+        + "\n".join(lb_lines) +
+        f"\n\n🌊🌊🌊\n"
+        f"Congratulations <b>{html.escape(winner_name)}</b>!\n"
+        f"You have won the <b>Cascade Badge</b>! 🌊\n"
+        f"🌊🌊🌊",
+        parse_mode="HTML"
+    )
+
+
     if not await ensure_allowed_chat(update, context):
         return
     admin = await _bootstrap_user(update)
@@ -1953,16 +2080,18 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         l = int(p.get("losses", 0))
         balls = int(p.get("suiballs", 0))
         fainted = " (FAINTED)" if cur_hp <= 0 else ""
+        badges_txt = get_badges_display(user_id)
         await edit_menu_message(
             query,
             "🪪 <b>Trainer Card</b>\n\n"
             f"👤 <b>{html.escape(display_name(user_id))}</b>\n"
-            f"🏅 <b>Record:</b> {w}W / {l}L\n\n"
-            f"{TYPE_EMOJI[champ['type']]} <b>{html.escape(champ_full_name_for_player(user_id, champ_key))}</b> (Lv.<b>{lv}</b>){fainted}\n"
+            f"🏅 <b>Record:</b> {w}W / {l}L\n"
+            + (f"🎖️ <b>Badges:</b> {badges_txt}\n" if badges_txt else "") +
+            f"\n{TYPE_EMOJI[champ['type']]} <b>{html.escape(champ_full_name_for_player(user_id, champ_key))}</b> (Lv.<b>{lv}</b>){fainted}\n"
             f"❤️ <b>HP:</b> {cur_hp}/{stats['hp']} ({hp_bar(cur_hp, stats['hp'])})\n"
             f"✨ <b>XP:</b> {xp}/{need if lv < MAX_LEVEL else 0}\n"
             f"📈 <b>Stats:</b> ATK {stats['atk']} | DEF {stats['def']} | SPD {stats['spd']}\n\n"
-            f"🎒 <b>Suiballs:</b> {balls} (daily +{DAILY_SUIBALLS}, cap {SUIBALL_CAP})\n"
+            f"🎒 <b>Suiballs:</b> {balls} (daily +{get_daily_suiballs()}, cap {get_suiball_cap()})\n"
             f"🔒 <b>Max Level:</b> {MAX_LEVEL}",
             main_menu_kb(user_id)
         )
@@ -2280,6 +2409,8 @@ def main():
     app.add_handler(CommandHandler("givesuiball", give_suiball))
     app.add_handler(CommandHandler("takesuiball", remove_suiball))
     app.add_handler(CommandHandler("resetleaderboard", reset_leaderboard))
+    app.add_handler(CommandHandler("tournamenton", tournamenton))
+    app.add_handler(CommandHandler("tournamentoff", tournamentoff))
     app.add_handler(CommandHandler("changechamp", change_champ))
     app.add_handler(CommandHandler("endfight", endfight))
     app.add_handler(CommandHandler("fight", fight))
