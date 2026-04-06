@@ -1752,16 +1752,27 @@ async def tournamenton(update: Update, context: ContextTypes.DEFAULT_TYPE):
             named.append(display_name(uid))
     save_players(players)
 
-    await update.message.reply_text(
+    tournament_text = (
         "🏆 <b>TOURNAMENT HAS STARTED!</b> 🏆\n\n"
         "Every Trainer has received <b>200 Suiballs</b>!\n\n"
         "Play <b>200 games</b> and finish in the <b>TOP 3</b> to win the Prize.\n\n"
         "Remember — <b>#1</b> receives the coveted\n"
         "🌊 <b>Cascade Badge</b> 🌊\n\n"
         "Daily Suiballs are now <b>+10</b> during the Tournament.\n\n"
-        "May the best Trainer win. Good luck! ⚔️",
-        parse_mode="HTML"
+        "May the best Trainer win. Good luck! ⚔️"
     )
+    tournament_image_candidates = ("tournament.jpg", "tournament.JPG", "tournament.png")
+    tournament_image = None
+    for name in tournament_image_candidates:
+        candidate = os.path.join(BASE_DIR, name)
+        if os.path.isfile(candidate):
+            tournament_image = candidate
+            break
+    if tournament_image:
+        with open(tournament_image, "rb") as photo:
+            await update.message.reply_photo(photo=photo, caption=tournament_text, parse_mode="HTML")
+    else:
+        await update.message.reply_text(tournament_text, parse_mode="HTML")
 
 async def tournamentoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_allowed_chat(update, context):
@@ -1805,15 +1816,26 @@ async def tournamentoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
         medal = medals[i] if i < 3 else f"{i+1}."
         lb_lines.append(f"{medal} <b>{html.escape(name)}</b> — Lv.{level} • {wins}W/{losses}L")
 
-    await update.message.reply_text(
+    congrats_text = (
         "🏁 <b>TOURNAMENT OVER!</b>\n\n"
         + "\n".join(lb_lines) +
         f"\n\n🌊🌊🌊\n"
         f"Congratulations <b>{html.escape(winner_name)}</b>!\n"
         f"You have won the <b>Cascade Badge</b>! 🌊\n"
-        f"🌊🌊🌊",
-        parse_mode="HTML"
+        f"🌊🌊🌊"
     )
+    congrats_image_candidates = ("congrats.jpg", "congrats.JPG", "congrats.png")
+    congrats_image = None
+    for name in congrats_image_candidates:
+        candidate = os.path.join(BASE_DIR, name)
+        if os.path.isfile(candidate):
+            congrats_image = candidate
+            break
+    if congrats_image:
+        with open(congrats_image, "rb") as photo:
+            await update.message.reply_photo(photo=photo, caption=congrats_text, parse_mode="HTML")
+    else:
+        await update.message.reply_text(congrats_text, parse_mode="HTML")
 
 
 async def change_champ(update: Update, context: ContextTypes.DEFAULT_TYPE):
