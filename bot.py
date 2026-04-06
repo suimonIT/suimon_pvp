@@ -25,7 +25,7 @@ TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
-ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848}
+ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848, -1003407035529}
 # Only these user IDs + the Telegram group owner can use privileged admin commands
 PRIVILEGED_USER_IDS = {1638084297, 7105730933}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
@@ -473,6 +473,7 @@ def get_badges_display(user_id: str) -> str:
     return " ".join(badge_map.get(b, "🏅") for b in badges)
 
 
+def hp_bar(current: int, max_hp: int, length: int = 10) -> str:
     mx = max(1, int(max_hp))
     cur = max(0, min(int(current), mx))
     filled = int(round((cur / mx) * length))
@@ -1798,6 +1799,7 @@ async def tournamentoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def change_champ(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_allowed_chat(update, context):
         return
     admin = await _bootstrap_user(update)
