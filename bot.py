@@ -1232,7 +1232,33 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu_kb(user)
     )
 
-async def give_suiball(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cutforsuimon(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
+    user = await _bootstrap_user(update)
+    if not update.message:
+        return
+
+    p = players[user]
+    t = today_str()
+    if p.get("last_cut") == t:
+        await update.message.reply_text(
+            "🩸 You already cut for the cult today. Come back tomorrow.",
+            reply_markup=main_menu_kb(user)
+        )
+        return
+
+    current = int(p.get("suiballs", 0))
+    p["suiballs"] = min(SUIBALL_CAP, current + 1)
+    p["last_cut"] = t
+    save_players(players)
+
+    await update.message.reply_text(
+        "🩸 You cut for the cult and earned 1 Suiball!",
+        reply_markup=main_menu_kb(user)
+    )
+
+
     if not await ensure_allowed_chat(update, context):
         return
     giver = await _bootstrap_user(update)
@@ -2250,6 +2276,7 @@ def main():
     app.add_handler(CommandHandler(["rankings", "leaderboard"], leaderboard))
     app.add_handler(CommandHandler("inventory", inventory))
     app.add_handler(CommandHandler("heal", heal))
+    app.add_handler(CommandHandler("cutforsuimon", cutforsuimon))
     app.add_handler(CommandHandler("givesuiball", give_suiball))
     app.add_handler(CommandHandler("takesuiball", remove_suiball))
     app.add_handler(CommandHandler("resetleaderboard", reset_leaderboard))
