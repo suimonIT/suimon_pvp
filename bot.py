@@ -2276,6 +2276,9 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         return
     await query.answer()
 
+    global players
+    players = load_players()  # always read fresh suiball counts
+
     data = query.data or ""
     parts = data.split("|")
     if len(parts) < 2:
@@ -2323,6 +2326,7 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         state["resolving"] = True
         try:
             players[clicker]["suiballs"] = balls - 1
+            save_players(players)  # persist suiball deduction immediately
             healer_champ_state = _battle_turn_champ_state(state)
             healer_champ_state["hp"] = healer_champ_state["max_hp"]
             healer_name = champ_display_for_player(clicker, _battle_turn_champ_key(state))
