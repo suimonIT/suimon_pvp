@@ -1509,7 +1509,7 @@ def award_battle_xp(winner: str, loser: str) -> Tuple[int, int]:
     grant_xp_with_hp_adjust(loser, xp_loser)
     return xp_winner, xp_loser
 
-def _battle_move_keyboard(chat_id: int, champ_key: str, player_id: str) -> InlineKeyboardMarkup:
+def _battle_move_keyboard(chat_id: int, champ_key: str, player_id: str, state: Dict[str, Any]) -> InlineKeyboardMarkup:
     moves = champ_from_key(champ_key)["moves"]
     rows: List[List[InlineKeyboardButton]] = []
     row: List[InlineKeyboardButton] = []
@@ -1521,8 +1521,20 @@ def _battle_move_keyboard(chat_id: int, champ_key: str, player_id: str) -> Inlin
     if row:
         rows.append(row)
     balls = int(players.get(player_id, {}).get("suiballs", 0))
-    ball_label = f"🧿 Use Suiball ({balls})" if balls > 0 else "🧿 No Suiballs"
-    rows.append([InlineKeyboardButton(ball_label, callback_data=f"heal|{chat_id}")])
+    used_this_battle = state.get("suiballs_used", {}).get(player_id, 0)
+    remaining_uses = max(0, 2 - used_this_battle)
+    can_heal = balls > 0 and remaining_uses > 0
+    if remaining_uses <= 0:
+        ball_label = f"🧿 Suiball (0/2 left)"
+    elif balls <= 0:
+        ball_label = f"🧿 Suiball (no balls · {remaining_uses}/2 left)"
+    else:
+        ball_label = f"🧿 Use Suiball ({balls} 🎒 · {remaining_uses}/2 left)"
+    if can_heal:
+        rows.append([InlineKeyboardButton(ball_label, callback_data=f"heal|{chat_id}")])
+    else:
+        # Disabled: use a no-op callback so Telegram accepts the button but nothing happens
+        rows.append([InlineKeyboardButton(ball_label, callback_data=f"noop|{chat_id}")])
     rows.append([InlineKeyboardButton("🏳️ Forfeit", callback_data=f"ff|{chat_id}")])
     return InlineKeyboardMarkup(rows)
 
@@ -1597,7 +1609,7 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
     champ_key = _battle_turn_champ_key(state)
     turn_user = _battle_turn_user(state)
     champ_name = champ_display_for_player(turn_user, champ_key)
-    kb = _battle_move_keyboard(chat_id, champ_key, turn_user)
+    kb = _battle_move_keyboard(chat_id, champ_key, turn_user, state)
     await _battle_push(chat_id, state, context, f"\n🎯 {name}'s turn — choose a move for {champ_name}:", delay=0.05, reply_markup=kb, force_reposition=False)
 
 async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, winner: str, loser: str):
@@ -1708,6 +1720,7 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
         "round": 0,
         "actions": 0,
         "max_rounds": 24,
+        "suiballs_used": {},  # tracks per-player suiball usage this battle
     }
     BATTLES[chat_id] = state
 
@@ -2304,6 +2317,10 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.answer("Action is already resolving…", show_alert=False)
         return
 
+    if kind == "noop":
+        await query.answer()
+        return
+
     if kind == "ff":
         # forfeit: must be a participant
         if clicker not in (state["user"], state["opponent"]):
@@ -2323,10 +2340,15 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         if balls <= 0:
             await query.answer("❌ You have no Suiballs!", show_alert=True)
             return
+        used_this_battle = state.get("suiballs_used", {}).get(clicker, 0)
+        if used_this_battle >= 2:
+            await query.answer()
+            return
         state["resolving"] = True
         try:
             players[clicker]["suiballs"] = balls - 1
             save_players(players)  # persist suiball deduction immediately
+            state["suiballs_used"][clicker] = state.get("suiballs_used", {}).get(clicker, 0) + 1
             healer_champ_state = _battle_turn_champ_state(state)
             healer_champ_state["hp"] = healer_champ_state["max_hp"]
             healer_name = champ_display_for_player(clicker, _battle_turn_champ_key(state))
@@ -2463,7 +2485,7 @@ def main():
     app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu(?:\||$)"))
     app.add_handler(CallbackQueryHandler(choose_callback, pattern=r"^choose\|"))
     app.add_handler(CallbackQueryHandler(challenge_callback, pattern=r"^suimon_(accept|decline)\|"))
-    app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff|heal)\|"))
+    app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff|heal|noop)\|"))
 
     print("Suimon Arena bot running...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
