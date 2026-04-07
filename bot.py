@@ -1744,8 +1744,8 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
                 secs = remaining % 60
                 wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
                 jdl_text = (
-                    f"👨\u200d🔬 <b>Professor JDL:</b> Hey <b>{p_name}</b>, you did more than "
-                    f"5 fights in a row. Let the others play first! "
+                    f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ took a hit from the b"
+                    f"he refuses to fight. Let him chill lil bit! "
                     f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
                 )
                 await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
