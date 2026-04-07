@@ -1521,12 +1521,7 @@ def _battle_move_keyboard(chat_id: int, champ_key: str, player_id: str) -> Inlin
     if row:
         rows.append(row)
     balls = int(players.get(player_id, {}).get("suiballs", 0))
-    used_this_battle = state.get("suiballs_used", {}).get(player_id, 0)
-    remaining_uses = max(0, 2 - used_this_battle)
-    if balls <= 0 or remaining_uses <= 0:
-        ball_label = f"🧿 No Suiballs ({remaining_uses}/2 left)"
-    else:
-        ball_label = f"🧿 Use Suiball ({balls} 🎒 · {remaining_uses}/2 left)"
+    ball_label = f"🧿 Use Suiball ({balls})" if balls > 0 else "🧿 No Suiballs"
     rows.append([InlineKeyboardButton(ball_label, callback_data=f"heal|{chat_id}")])
     rows.append([InlineKeyboardButton("🏳️ Forfeit", callback_data=f"ff|{chat_id}")])
     return InlineKeyboardMarkup(rows)
@@ -1713,7 +1708,6 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
         "round": 0,
         "actions": 0,
         "max_rounds": 24,
-        "suiballs_used": {},  # tracks per-player suiball usage this battle
     }
     BATTLES[chat_id] = state
 
@@ -2329,15 +2323,10 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         if balls <= 0:
             await query.answer("❌ You have no Suiballs!", show_alert=True)
             return
-        used_this_battle = state.get("suiballs_used", {}).get(clicker, 0)
-        if used_this_battle >= 2:
-            await query.answer("❌ Max 2 Suiballs per battle!", show_alert=True)
-            return
         state["resolving"] = True
         try:
             players[clicker]["suiballs"] = balls - 1
             save_players(players)  # persist suiball deduction immediately
-            state["suiballs_used"][clicker] = state.get("suiballs_used", {}).get(clicker, 0) + 1
             healer_champ_state = _battle_turn_champ_state(state)
             healer_champ_state["hp"] = healer_champ_state["max_hp"]
             healer_name = champ_display_for_player(clicker, _battle_turn_champ_key(state))
