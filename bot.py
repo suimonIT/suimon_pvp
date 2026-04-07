@@ -196,6 +196,21 @@ PROFESSOR_JDL_LINES = [
     "👨‍🔬 <b>Professor JDL:</b> Nurse Joy just quit. This is your fault.",
     "👨‍🔬 <b>Professor JDL:</b> I studied 12 years for this. 12 YEARS.",
     "👨‍🔬 <b>Professor JDL:</b> The Suimon League banned me from attending live battles. I can see why now.",
+    "👨‍🔬 <b>Professor JDL:</b> I showed this battle to my ex. She said it explains a lot about me.",
+    "👨‍🔬 <b>Professor JDL:</b> My insurance doesn't cover emotional damage from watching this.",
+    "👨‍🔬 <b>Professor JDL:</b> I've peer-reviewed 200 papers. None of them prepared me for this.",
+    "👨‍🔬 <b>Professor JDL:</b> My Tinder profile now says 'battle-hardened scientist'. Thanks for that.",
+    "👨‍🔬 <b>Professor JDL:</b> I texted Nurse Joy a heart emoji. She left me on read. This is your fault.",
+    "👨‍🔬 <b>Professor JDL:</b> At this point I'm rooting for the Suimon. Both of them.",
+    "👨‍🔬 <b>Professor JDL:</b> I spilled my coffee watching that last move. Third time today.",
+    "👨‍🔬 <b>Professor JDL:</b> My mother always said I'd amount to nothing. She hasn't seen this battle.",
+    "👨‍🔬 <b>Professor JDL:</b> I've seen things in this lab I can't unsee. This is now one of them.",
+    "👨‍🔬 <b>Professor JDL:</b> The ethics committee is going to LOVE my report on this one.",
+    "👨‍🔬 <b>Professor JDL:</b> I've seen people cut themselves for Suimon. There wasn't even this much blood.",
+    "👨‍🔬 <b>Professor JDL:</b> The cult elders warned me about battles like this. I didn't listen.",
+    "👨‍🔬 <b>Professor JDL:</b> Three initiates fainted in the ritual last week. This is somehow worse.",
+    "👨‍🔬 <b>Professor JDL:</b> We sacrifice a lot for Suimon. But nothing like what's happening right now.",
+    "👨‍🔬 <b>Professor JDL:</b> Ninja told me she'd seen worse. She was lying.",
 ]
 _last_jdl_index: int = -1
 
@@ -677,10 +692,27 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
         if defender.get("sleep_turns", 0) > 0:
             out.append(f"{STATUS_EMOJI['sleep']} {d_name} is already sleeping! Move wasted.")
             return out
+        if defender.get("has_slept", False):
+            # attacker's champ is now too stoned to fight
+            attacker["sleep_turns"] = 1
+            out.append(
+                f"🌿 {a_name} reaches into the bag one too many times..."
+                f" takes a massive hit of <b>Cannabis indica</b> and zones out completely."
+                f" 💨 <i>\"Make Love, not War\"</i> — {a_name} refuses to fight this turn!"
+            )
+            return out
         turns = move.get("sleep_turns", (1, 2))
         sleep_t = random.randint(int(turns[0]), int(turns[1]))
         defender["sleep_turns"] = sleep_t
-        out.append(f"{STATUS_EMOJI['sleep']} {d_name} fell asleep! ({sleep_t} turn{'s' if sleep_t != 1 else ''})")
+        defender["has_slept"] = True
+        cannabis_texts = [
+            f"🌿 {a_name} hurls a fistful of <b>Cannabis indica</b>! {d_name} is absolutely baked and refuses to fight! 💨",
+            f"🌿 {a_name} deploys the <b>Cannabis indica</b>! {d_name} takes a massive hit and passes out! 💨",
+            f"🌿 {a_name} releases <b>Cannabis indica</b> spores! {d_name} smells it and immediately forgets what a battle is! 💨",
+            f"🌿 {a_name} attacks with a plant called <b>Cannabis indica</b>! {d_name} is stoned beyond comprehension — it ain't moving! 💨",
+        ]
+        out.append(("html", random.choice(cannabis_texts)))
+        out.append(f"💤 {d_name} is asleep for {sleep_t} turn{'s' if sleep_t != 1 else ''}!")
         return out
 
     power = int(move.get("power", 40))
@@ -1735,8 +1767,8 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
     s1 = get_stats(c1_key, lv1)
     s2 = get_stats(c2_key, lv2)
 
-    champ1 = {"hp": int(p1_cur_hp), "max_hp": s1["hp"], "atk": s1["atk"], "def": s1["def"], "spd": s1["spd"], "burn_turns": 0, "sleep_turns": 0}
-    champ2 = {"hp": int(p2_cur_hp), "max_hp": s2["hp"], "atk": s2["atk"], "def": s2["def"], "spd": s2["spd"], "burn_turns": 0, "sleep_turns": 0}
+    champ1 = {"hp": int(p1_cur_hp), "max_hp": s1["hp"], "atk": s1["atk"], "def": s1["def"], "spd": s1["spd"], "burn_turns": 0, "sleep_turns": 0, "has_slept": False}
+    champ2 = {"hp": int(p2_cur_hp), "max_hp": s2["hp"], "atk": s2["atk"], "def": s2["def"], "spd": s2["spd"], "burn_turns": 0, "sleep_turns": 0, "has_slept": False}
 
     p1_name = display_name(user, "Player A")
     p2_name = display_name(opponent, "Player B")
