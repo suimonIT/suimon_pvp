@@ -1641,9 +1641,37 @@ async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes
 
     await _battle_push(chat_id, state, context, "✅ Battle complete.", delay=END_DELAY, reply_markup=None)
 
+    # Track consecutive fights (tournament)
+    if is_tournament_active():
+        _increment_consecutive_fights(state["user"])
+        _increment_consecutive_fights(state["opponent"])
+    save_players(players)
+
     # cleanup
     BATTLES.pop(chat_id, None)
     ACTIVE_BATTLES.discard(chat_id)
+
+CONSECUTIVE_FIGHT_LIMIT = 5
+CONSECUTIVE_FIGHT_COOLDOWN = 300  # 5 minutes in seconds
+
+def _check_consecutive_fights(player_id: str) -> bool:
+    """Returns True if player is blocked (5+ fights, last fight < 5 min ago)."""
+    p = players.get(player_id, {})
+    count = int(p.get("consecutive_fights", 0))
+    last_ts = float(p.get("last_fight_ts", 0))
+    if count >= CONSECUTIVE_FIGHT_LIMIT:
+        elapsed = time.time() - last_ts
+        if elapsed < CONSECUTIVE_FIGHT_COOLDOWN:
+            return True
+        else:
+            # Cooldown passed — reset automatically
+            p["consecutive_fights"] = 0
+    return False
+
+def _increment_consecutive_fights(player_id: str) -> None:
+    p = players.get(player_id, {})
+    p["consecutive_fights"] = int(p.get("consecutive_fights", 0)) + 1
+    p["last_fight_ts"] = time.time()
 
 async def _start_battle(chat_id: int, user: str, opponent: str, context: ContextTypes.DEFAULT_TYPE):
     global players
@@ -1673,6 +1701,23 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
     if p2_cur_hp <= 0:
         await context.bot.send_message(chat_id=chat_id, text=f"❌ {display_name(opponent)} must /heal first (HP 0).")
         return
+
+    # Consecutive fight limit (tournament only)
+    if is_tournament_active():
+        for pid in (user, opponent):
+            if _check_consecutive_fights(pid):
+                p_name = display_name(pid)
+                remaining = max(0, int(CONSECUTIVE_FIGHT_COOLDOWN - (time.time() - float(players[pid].get("last_fight_ts", 0)))))
+                mins = remaining // 60
+                secs = remaining % 60
+                wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
+                jdl_text = (
+                    f"👨\u200d🔬 <b>Professor JDL:</b> Hey <b>{p_name}</b>, you did more than "
+                    f"5 fights in a row. Let the others play first! "
+                    f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
+                )
+                await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
+                return
 
     ACTIVE_BATTLES.add(chat_id)
 
