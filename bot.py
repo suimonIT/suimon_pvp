@@ -102,25 +102,25 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         "type": "nature",
         "base": {"hp": 110, "atk": 19, "def": 12, "spd": 9},
         "moves": [
-            {"name": "Coca Whip", "kind": "damage", "power": 40, "acc": 0.95, "text": [
-                "lashes out with Coca Whip!",
-                "snaps its vines: Coca Whip!",
-                "releases a plant callded Erythroxylum coca — Coca Whip!",
+            {"name": "Vine Whip", "kind": "damage", "power": 40, "acc": 0.95, "text": [
+                "whips out something long and flexible — no lube included!",
+                "snaps its vine like a dominatrix on a coke binge!",
+                "lashes harder than a dealer who wasn't paid on time!",
             ]},
             {"name": "Razor Leaf", "kind": "damage_highcrit", "power": 46, "acc": 0.92, "crit_bonus": 0.08, "text": [
-                "fires spinning blades: Razor Leaf!",
-                "scatters sharp leaves — Razor Leaf!",
-                "cuts the field with Razor Leaf!",
+                "fires blades sharper than the needle your dealer uses!",
+                "cuts deeper than your dealer's prices after midnight!",
+                "slices through like a coke line on a Friday night!",
             ]},
             {"name": "Leaf Storm", "kind": "damage", "power": 55, "acc": 0.88, "text": [
-                "unleashes Leaf Storm — razor leaves slice the air!",
-                "summons a vortex: Leaf Storm!",
-                "calls down a tempest: Leaf Storm!",
+                "unleashes Leaf Storm — sharper than your dad's comments about your life choices!",
+                "summons a vortex nastier than your last intervention!",
+                "calls down a tempest that hits harder than a bad batch!",
             ]},
             {"name": "Sleep Spore", "kind": "status_sleep", "power": 0, "acc": 0.75, "sleep_turns": (1, 2), "text": [
-                "scatters Sleep Spore… eyelids grow heavy.",
-                "swirls Sleep Spore across the arena!",
-                "releases a cloud — Sleep Spore!",
+                "pulls out Cannabis indica — the good stuff, not the street trash!",
+                "hotboxes the entire arena with primo kush!",
+                "deploys Sleep Spore — straight from the cult's private stash!",
             ]},
         ],
     },
@@ -130,24 +130,24 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         "base": {"hp": 102, "atk": 22, "def": 10, "spd": 12},
         "moves": [
             {"name": "Ember", "kind": "damage_burn", "power": 40, "acc": 0.95, "burn_chance": 0.30, "text": [
-                "spits on enemies face: Ember!",
-                "launches crackling flames — Ember!",
-                "lets embers rain down: Ember!",
+                "spits sparks like a crackpipe at 3am!",
+                "launches hot ones — hotter than that DM you regretted sending!",
+                "spits fire like a meth head who just found out the batch is pure!",
             ]},
             {"name": "Flamethrower", "kind": "damage", "power": 55, "acc": 0.90, "text": [
-                "blasts a roaring stream: Flamethrower!",
-                "takes a hit from his bong and turns up the heat — Flamethrower!",
-                "scorches the arena with Flamethrower!",
+                "blasts a stream hotter than a speedball hitting wrong!",
+                "turns up the heat like cooking meth without ventilation!",
+                "scorches everything — size matters here and it delivered!",
             ]},
             {"name": "Inferno Claw", "kind": "damage_highcrit", "power": 48, "acc": 0.92, "crit_bonus": 0.10, "text": [
-                "slashes with Inferno Claw — glowing talons!",
-                "rips through the air like Bruce Lee: Inferno Claw!",
-                "carves a fiery arc — Inferno Claw!",
+                "scratches marks that'll need explaining to your parole officer!",
+                "carves deep — leaves marks the cult will be proud of!",
+                "rips through like a bad breakup — slow, painful, and very personal!",
             ]},
             {"name": "Fire Fang", "kind": "damage", "power": 44, "acc": 0.94, "text": [
-                "bites his opponents dick with Fire Fang!",
-                "lunges forward — Fire Fang!",
-                "snaps its jaws: Fire Fang!",
+                "bites in with the desperation of someone who needs a fix!",
+                "chomps down harder than a crackhead on a KitKat!",
+                "sinks its teeth in — no dinner first, no apology after!",
             ]},
         ],
     },
@@ -157,44 +157,42 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         "base": {"hp": 115, "atk": 18, "def": 14, "spd": 8},
         "moves": [
             {"name": "Water Gun", "kind": "damage", "power": 40, "acc": 0.96, "text": [
-                "fires Water Gun injected with Ketamin!",
-                "blasts a jet — Water Gun!",
-                "sprays harder then Johnny Sins: Water Gun!",
+                "pulls out and fires without warning — Water Gun!",
+                "sprays like a junkie who just found a vein!",
+                "shoots faster than your last Tinder date left!",
             ]},
             {"name": "Bubble Beam", "kind": "damage", "power": 46, "acc": 0.93, "text": [
-                "releases shimmering bubbles: Bubble Beam!",
-                "floods the field with Bubble Beam!",
-                "bubbles burst everywhere — Bubble Beam!",
+                "releases suspiciously warm bubbles in places you didn't ask for!",
+                "fires bubbles like a crackhead blowing kisses — Bubble Beam!",
+                "floods the field with something that definitely isn't bathwater!",
             ]},
             {"name": "Aqua Tail", "kind": "damage", "power": 52, "acc": 0.88, "text": [
-                "slaps with his big dick - Aqua Tail!",
-                "spins and strikes — Aqua Tail!",
-                "whips up water: Aqua Tail!",
+                "slaps with a wet tail — somewhere between a fetish and a crime!",
+                "swings something long and wet in directions that'll require therapy!",
+                "whips up water harder than a dealer who wasn't paid!",
             ]},
             {"name": "Hydro Burst", "kind": "damage", "power": 60, "acc": 0.82, "text": [
-                "builds pressure… Hydro Burst!",
-                "unleashes a cannon-blast: Hydro Burst!",
-                "detonates a wave: Hydro Burst!",
+                "builds pressure like a meth cook with a deadline!",
+                "releases fluids with the force of a man who hasn't seen daylight in 3 weeks!",
+                "explodes harder than a Breaking Bad finale — Hydro Burst!",
             ]},
         ],
     },
 }
 
 PROFESSOR_JDL_LINES = [
-    "👨‍🔬 <b>Professor JDL:</b> I showed this battle to my ex. She said it explains a lot about me...",
-    "👨‍🔬 <b>Professor JDL:</b> My insurance doesn't cover emotional damage from watching this motherfuckers!",
-    "👨‍🔬 <b>Professor JDL:</b> My Tinder profile now says 'battle-hardened scientist'. Thanks for that.",
-    "👨‍🔬 <b>Professor JDL:</b> I sent Nurse Joy my nudes. She left me on read. This is your fault.",
-    "👨‍🔬 <b>Professor JDL:</b> At this point I'm rooting for the Suimon. Both of them.",
-    "👨‍🔬 <b>Professor JDL:</b> I spilled my whiskey watching that last move. Third time today.",
-    "👨‍🔬 <b>Professor JDL:</b> My mother always said I'd amount to nothing. She hasn't seen this battle.",
-    "👨‍🔬 <b>Professor JDL:</b> I've seen things in this lab I can't unsee. This is now one of them.",
-    "👨‍🔬 <b>Professor JDL:</b> The ethics committee is going to LOVE my report on this one.",
+    "👨‍🔬 <b>Professor JDL:</b> Nurse Joy just asked me for ketamine. I gave her the whole vial. She's now treating patients with remarkable confidence.",
+    "👨‍🔬 <b>Professor JDL:</b> Ninja did a line off my lab desk after that last move. I joined her. The results were inconclusive.",
+    "👨‍🔬 <b>Professor JDL:</b> The cult's fentanyl supply was meant to last the month. We're on day 3 of this battle.",
+    "👨‍🔬 <b>Professor JDL:</b> Three initiates didn't come home after the last round. I'm not worried — they know the ritual.",
     "👨‍🔬 <b>Professor JDL:</b> I've seen people cut themselves for Suimon. There wasn't even this much blood.",
-    "👨‍🔬 <b>Professor JDL:</b> Charles Manson warned me about battles like this. I didn't listen.",
-    "👨‍🔬 <b>Professor JDL:</b> Three initiates fainted in the ritual last week. This is somehow worse.",
-    "👨‍🔬 <b>Professor JDL:</b> We sacrifice a lot for Suimon. But nothing like what's happening right now.",
-    "👨‍🔬 <b>Professor JDL:</b> Ninja told me she'd seen worse. She was lying.",
+    "👨‍🔬 <b>Professor JDL:</b> The Great Suimon demands sacrifice. After that move, I finally understand why.",
+    "👨‍🔬 <b>Professor JDL:</b> An initiate offered to end this fight the old fashioned way. I told him it wouldn't help. He did it anyway.",
+    "👨‍🔬 <b>Professor JDL:</b> I've been awake for 72 hours. The meth helps. This battle does not.",
+    "👨‍🔬 <b>Professor JDL:</b> Nurse Joy stopped responding after round 3. Professionally speaking, the dosage was correct.",
+    "👨‍🔬 <b>Professor JDL:</b> The cult elders have survived wars and dark rituals. They muted this battle after round 2.",
+    "👨‍🔬 <b>Professor JDL:</b> My research grant is gone. I spent it on the batch Ninja cooked. Worth it.",
+    "👨‍🔬 <b>Professor JDL:</b> We ran out of clean needles at round 4. The ritual must go on.",
 ]
 _last_jdl_index: int = -1
 
@@ -488,7 +486,12 @@ def battle_hud(p1_label: str, hp1: int, max1: int, p2_label: str, hp2: int, max2
 
 def xp_needed(level: int) -> int:
     level = max(1, min(int(level), MAX_LEVEL))
-    return int(60 + (level - 1) * 18 + (level ** 2) * 3)
+    base = int(60 + (level - 1) * 18 + (level ** 2) * 3)
+    if level >= 9:
+        return int(base * 4.0)
+    if level >= 8:
+        return int(base * 2.5)
+    return base
 
 def champ_key_from_input(arg: str) -> Optional[str]:
     if not arg:
@@ -599,9 +602,9 @@ def heal_to_full(user_id: str) -> Tuple[int, int]:
 
 def type_mult(attacker_type: str, defender_type: str) -> Tuple[float, str]:
     if CHAMPS_BY_TYPE[attacker_type]["strong_against"] == defender_type:
-        return 1.20, "strong"
+        return 1.12, "strong"
     if CHAMPS_BY_TYPE[attacker_type]["weak_to"] == defender_type:
-        return 0.85, "weak"
+        return 0.92, "weak"
     return 1.0, "neutral"
 
 def pick_first_attacker(spd1: int, spd2: int) -> int:
@@ -639,13 +642,24 @@ def status_tick_lines(champ_state: Dict[str, Any], champ_display: str) -> List[s
         champ_state["burn_turns"] -= 1
         burn_dmg = max(2, int(round(champ_state["max_hp"] * 0.06)))
         champ_state["hp"] -= burn_dmg
-        out.append(f"{STATUS_EMOJI['burn']} {champ_display} is hurt by burn! (-{burn_dmg})")
+        burn_texts = [
+            f"{STATUS_EMOJI['burn']} {champ_display} burns like a bad batch from a sketchy cook! (-{burn_dmg})",
+            f"{STATUS_EMOJI['burn']} {champ_display} is on fire — like cooking meth in a studio apartment! (-{burn_dmg})",
+            f"{STATUS_EMOJI['burn']} {champ_display} burns like a UTI after a festival weekend! (-{burn_dmg})",
+        ]
+        out.append(random.choice(burn_texts))
     return out
 
 def can_act(champ_state: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if champ_state.get("sleep_turns", 0) > 0:
         champ_state["sleep_turns"] -= 1
-        return False, ["is asleep and can't move!"]
+        sleep_texts = [
+            "passed out harder than someone who mixed heroin with Benadryl!",
+            "is down for the count — that wasn't just Cannabis indica!",
+            "is sleeping like someone who just made a very regrettable decision!",
+            "is out cold — the cult calls this 'enlightenment'.",
+        ]
+        return False, [random.choice(sleep_texts)]
     return True, []
 
 def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_key: str, a_level: int, move: Dict[str, Any], attacker_name: Optional[str] = None, defender_name: Optional[str] = None, defender_level: int = 0) -> List[str]:
@@ -663,9 +677,18 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
     if random.random() < effective_miss:
         out.append(f"{TYPE_EMOJI[a['type']]} {a_name} used {move['name']}!")
         if extra_miss > 0:
-            out.append("💨 Missed! (Your champ's ego is too big)")
+            miss_texts = [
+                "💨 Missed! Aim like that and even your dealer would drop you!",
+                "💨 Missed! Shaking too hard — lay off the meth next time!",
+                "💨 Missed! Even a blind junkie shoots straighter than that!",
+            ]
         else:
-            out.append("💨 It missed!")
+            miss_texts = [
+                "💨 Missed! Couldn't hit a barn door with a bazooka!",
+                "💨 Missed! Too high to aim properly!",
+                "💨 Missed! Your dealer hits more consistently than this!",
+            ]
+        out.append(random.choice(miss_texts))
         return out
 
     out.append(f"{TYPE_EMOJI[a['type']]} {a_name} {random.choice(move.get('text', ['attacks!']))}")
@@ -730,7 +753,13 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
     elif eff == "weak":
         eff_txt = " 🫧 Not very effective…"
 
-    crit_txt = " CRIT!" if crit else ""
+    crit_texts = [
+        " CRIT — hits harder than a bad batch!",
+        " CRIT — lands like a fentanyl overdose, unexpected and devastating!",
+        " CRIT — dirty hit that would make a cartel blush!",
+        " CRIT — straight to the nerve, no warning!",
+    ]
+    crit_txt = random.choice(crit_texts) if crit else ""
     out.append(("html", f"💢 Hit: <b>{dmg} damage</b>{crit_txt}{eff_txt}"))
 
     if kind == "damage_burn":
@@ -1724,21 +1753,21 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
         return
 
     # Consecutive fight limit (tournament only)
-    #if is_tournament_active():
-        #for pid in (user, opponent):
-            #if _check_consecutive_fights(pid):
-                #p_name = display_name(pid)
-                #remaining = max(0, int(CONSECUTIVE_FIGHT_COOLDOWN - (time.time() - float(players[pid].get("last_fight_ts", 0)))))
-                #mins = remaining // 60
-                #secs = remaining % 60
-                #wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
-                #jdl_text = (
-                   # f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ wants to smoke pot and chill, "
-                    #f" he refuses to fight. Let him rest! "
-                    #f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
-                #)
-                #await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
-                #return
+    if is_tournament_active():
+        for pid in (user, opponent):
+            if _check_consecutive_fights(pid):
+                p_name = display_name(pid)
+                remaining = max(0, int(CONSECUTIVE_FIGHT_COOLDOWN - (time.time() - float(players[pid].get("last_fight_ts", 0)))))
+                mins = remaining // 60
+                secs = remaining % 60
+                wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
+                jdl_text = (
+                    f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ wants to smoke pot and chill "
+                    f", he refuses to fight. Let him rest! "
+                    f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
+                )
+                await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
+                return
 
     ACTIVE_BATTLES.add(chat_id)
 
