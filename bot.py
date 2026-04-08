@@ -1638,7 +1638,7 @@ async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes
     # Persist HP + XP
     
     set_current_hp(state["user"], int(max(state["champ1"]["hp"], 0)))
-xp_w, xp_l = award_battle_xp(winner, loser)
+    xp_w, xp_l = award_battle_xp(winner, loser)
     save_players(players)
 
     w_name = display_name(winner, "Winner")
