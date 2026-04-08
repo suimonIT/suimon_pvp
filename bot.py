@@ -512,8 +512,8 @@ def get_stats(champ_key: str, level: int) -> Dict[str, int]:
     level = max(1, min(int(level), MAX_LEVEL))
     base = champ_from_key(champ_key)["base"]
     hp = int(round(base["hp"] + (level - 1) * 9))
-    atk = int(round(base["atk"] + (level - 1) * 2))
-    df = int(round(base["def"] + (level - 1) * 2))
+    atk = int(round(base["atk"] + (level - 1) * 1))
+    df = int(round(base["def"] + (level - 1) * 1))
     spd = int(round(base["spd"] + (level - 1) * 1))
     return {"hp": hp, "atk": atk, "def": df, "spd": spd}
 
@@ -625,13 +625,16 @@ def calc_damage(attacker_atk: int, defender_def: int, level: int,
                 power: int, type_mult_: float, crit_mult: float,
                 defender_level: int = 0) -> int:
     effective_def = max(1, int(defender_def))
-    # Underdog defense bonus: +3% per level the defender is below attacker, capped at 15%
+    # Underdog defense bonus: +3% per level the defender is below attacker, capped at 12%
     gap = level - defender_level
     if gap > 0 and defender_level > 0:
-        def_bonus = 1.0 + min(0.15, gap * 0.03)
+        def_bonus = 1.0 + min(0.12, gap * 0.03)
         effective_def = int(effective_def * def_bonus)
-    base = ((2 * level / 5) + 2) * power * attacker_atk / (effective_def * 1.25)
-    base = (base / 6) + 2
+    # Level factor is capped at 8 to prevent high levels from dominating
+    level_factor = (2 * min(level, 8) / 5 + 2) / (2 * 5 / 5 + 2)
+    base = 4.0 * power * attacker_atk / (effective_def * 1.25)
+    base = (base / 8) + 2
+    base *= level_factor
     base *= random.uniform(0.92, 1.08)
     dmg = int(round(base * type_mult_ * crit_mult))
     return max(1, dmg)
