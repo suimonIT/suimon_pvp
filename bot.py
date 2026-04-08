@@ -102,10 +102,10 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         "type": "nature",
         "base": {"hp": 110, "atk": 19, "def": 12, "spd": 9},
         "moves": [
-            {"name": "Vine Whip", "kind": "damage", "power": 40, "acc": 0.95, "text": [
-                "lashes out with Vine Whip!",
-                "snaps its vines: Vine Whip!",
-                "whips the air — Vine Whip!",
+            {"name": "Coca Whip", "kind": "damage", "power": 40, "acc": 0.95, "text": [
+                "lashes out with Coca Whip!",
+                "snaps its vines: Coca Whip!",
+                "releases a plant callded Erythroxylum coca — Coca Whip!",
             ]},
             {"name": "Razor Leaf", "kind": "damage_highcrit", "power": 46, "acc": 0.92, "crit_bonus": 0.08, "text": [
                 "fires spinning blades: Razor Leaf!",
@@ -130,22 +130,22 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         "base": {"hp": 102, "atk": 22, "def": 10, "spd": 12},
         "moves": [
             {"name": "Ember", "kind": "damage_burn", "power": 40, "acc": 0.95, "burn_chance": 0.30, "text": [
-                "spits sparks: Ember!",
+                "spits on enemies face: Ember!",
                 "launches crackling flames — Ember!",
                 "lets embers rain down: Ember!",
             ]},
             {"name": "Flamethrower", "kind": "damage", "power": 55, "acc": 0.90, "text": [
                 "blasts a roaring stream: Flamethrower!",
-                "turns up the heat — Flamethrower!",
+                "takes a hit from his bong and turns up the heat — Flamethrower!",
                 "scorches the arena with Flamethrower!",
             ]},
             {"name": "Inferno Claw", "kind": "damage_highcrit", "power": 48, "acc": 0.92, "crit_bonus": 0.10, "text": [
                 "slashes with Inferno Claw — glowing talons!",
-                "rips through the air: Inferno Claw!",
+                "rips through the air like Bruce Lee: Inferno Claw!",
                 "carves a fiery arc — Inferno Claw!",
             ]},
             {"name": "Fire Fang", "kind": "damage", "power": 44, "acc": 0.94, "text": [
-                "bites in with Fire Fang!",
+                "bites his opponents dick with Fire Fang!",
                 "lunges forward — Fire Fang!",
                 "snaps its jaws: Fire Fang!",
             ]},
@@ -157,9 +157,9 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         "base": {"hp": 115, "atk": 18, "def": 14, "spd": 8},
         "moves": [
             {"name": "Water Gun", "kind": "damage", "power": 40, "acc": 0.96, "text": [
-                "fires Water Gun!",
+                "fires Water Gun injected with Ketamin!",
                 "blasts a jet — Water Gun!",
-                "sprays hard: Water Gun!",
+                "sprays harder then Johnny Sins: Water Gun!",
             ]},
             {"name": "Bubble Beam", "kind": "damage", "power": 46, "acc": 0.93, "text": [
                 "releases shimmering bubbles: Bubble Beam!",
@@ -167,7 +167,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
                 "bubbles burst everywhere — Bubble Beam!",
             ]},
             {"name": "Aqua Tail", "kind": "damage", "power": 52, "acc": 0.88, "text": [
-                "swings a crashing Aqua Tail!",
+                "slaps with his big dick - Aqua Tail!",
                 "spins and strikes — Aqua Tail!",
                 "whips up water: Aqua Tail!",
             ]},
@@ -181,33 +181,17 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
 }
 
 PROFESSOR_JDL_LINES = [
-    "👨‍🔬 <b>Professor JDL:</b> Wow Trainers, you're giving everything! Nurse Joy is having a heart attack — and you know I need her desperately!",
-    "👨‍🔬 <b>Professor JDL:</b> Mamma Mia! I haven't seen a fight like this even in Charleston among drug addicts — keep pushing!",
-    "👨‍🔬 <b>Professor JDL:</b> I've seen gang shootings that were more humane than this battle — someone stop these trainers!",
-    "👨‍🔬 <b>Professor JDL:</b> My lab assistant Ninja just fainted watching this — and she survived THREE Hydro Bursts last week!",
-    "👨‍🔬 <b>Professor JDL:</b> At this point Nurse Joy has locked herself in the bathroom and won't come out!",
-    "👨‍🔬 <b>Professor JDL:</b> I've done things for science I'm not proud of — but watching this fight might be the worst of them!",
-    "👨‍🔬 <b>Professor JDL:</b> I called my therapist mid-battle. She hung up.",
-    "👨‍🔬 <b>Professor JDL:</b> This is not science anymore. This is personal.",
-    "👨‍🔬 <b>Professor JDL:</b> I've seen Suimon die in my lab. This is worse.",
-    "👨‍🔬 <b>Professor JDL:</b> My grant money did NOT cover witnessing this.",
-    "👨‍🔬 <b>Professor JDL:</b> Even Team Rocket would call this excessive.",
-    "👨‍🔬 <b>Professor JDL:</b> I haven't eaten in 3 days watching these battles. Worth it.",
-    "👨‍🔬 <b>Professor JDL:</b> Nurse Joy just quit. This is your fault.",
-    "👨‍🔬 <b>Professor JDL:</b> I studied 12 years for this. 12 YEARS.",
-    "👨‍🔬 <b>Professor JDL:</b> The Suimon League banned me from attending live battles. I can see why now.",
-    "👨‍🔬 <b>Professor JDL:</b> I showed this battle to my ex. She said it explains a lot about me.",
-    "👨‍🔬 <b>Professor JDL:</b> My insurance doesn't cover emotional damage from watching this.",
-    "👨‍🔬 <b>Professor JDL:</b> I've peer-reviewed 200 papers. None of them prepared me for this.",
+    "👨‍🔬 <b>Professor JDL:</b> I showed this battle to my ex. She said it explains a lot about me...",
+    "👨‍🔬 <b>Professor JDL:</b> My insurance doesn't cover emotional damage from watching this motherfuckers!",
     "👨‍🔬 <b>Professor JDL:</b> My Tinder profile now says 'battle-hardened scientist'. Thanks for that.",
-    "👨‍🔬 <b>Professor JDL:</b> I texted Nurse Joy a heart emoji. She left me on read. This is your fault.",
+    "👨‍🔬 <b>Professor JDL:</b> I sent Nurse Joy my nudes. She left me on read. This is your fault.",
     "👨‍🔬 <b>Professor JDL:</b> At this point I'm rooting for the Suimon. Both of them.",
-    "👨‍🔬 <b>Professor JDL:</b> I spilled my coffee watching that last move. Third time today.",
+    "👨‍🔬 <b>Professor JDL:</b> I spilled my whiskey watching that last move. Third time today.",
     "👨‍🔬 <b>Professor JDL:</b> My mother always said I'd amount to nothing. She hasn't seen this battle.",
     "👨‍🔬 <b>Professor JDL:</b> I've seen things in this lab I can't unsee. This is now one of them.",
     "👨‍🔬 <b>Professor JDL:</b> The ethics committee is going to LOVE my report on this one.",
     "👨‍🔬 <b>Professor JDL:</b> I've seen people cut themselves for Suimon. There wasn't even this much blood.",
-    "👨‍🔬 <b>Professor JDL:</b> The cult elders warned me about battles like this. I didn't listen.",
+    "👨‍🔬 <b>Professor JDL:</b> Charles Manson warned me about battles like this. I didn't listen.",
     "👨‍🔬 <b>Professor JDL:</b> Three initiates fainted in the ritual last week. This is somehow worse.",
     "👨‍🔬 <b>Professor JDL:</b> We sacrifice a lot for Suimon. But nothing like what's happening right now.",
     "👨‍🔬 <b>Professor JDL:</b> Ninja told me she'd seen worse. She was lying.",
@@ -679,7 +663,7 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
     if random.random() < effective_miss:
         out.append(f"{TYPE_EMOJI[a['type']]} {a_name} used {move['name']}!")
         if extra_miss > 0:
-            out.append("💨 Missed! (underestimated the opponent)")
+            out.append("💨 Missed! (Your champ's ego is too big)")
         else:
             out.append("💨 It missed!")
         return out
@@ -691,20 +675,23 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
     if kind == "status_sleep":
         if defender.get("sleep_turns", 0) > 0:
             out.append(f"{STATUS_EMOJI['sleep']} {d_name} is already sleeping! Move wasted.")
+            attacker["last_used_sleep"] = False
             return out
-        if defender.get("has_slept", False):
-            # attacker's champ is now too stoned to fight
+        if attacker.get("last_used_sleep", False):
+            # used sleep spore twice in a row — backfires
             attacker["sleep_turns"] = 1
-            out.append(
-                f"🌿 {a_name} reaches into the bag one too many times..."
-                f" takes a massive hit of <b>Cannabis indica</b> and zones out completely."
-                f" 💨 <i>\"Make Love, not War\"</i> — {a_name} refuses to fight this turn!"
-            )
+            attacker["last_used_sleep"] = False
+            out.append(("html",
+                f"🌿 {a_name} reaches into the bag one too many times... takes a massive hit of "
+                f"<b>Cannabis indica</b> and zones out completely. 💨\n"
+                f"<i>\"Make Love, not War\"</i> — {a_name} refuses to fight this turn!"
+            ))
             return out
         turns = move.get("sleep_turns", (1, 2))
         sleep_t = random.randint(int(turns[0]), int(turns[1]))
         defender["sleep_turns"] = sleep_t
         defender["has_slept"] = True
+        attacker["last_used_sleep"] = True
         cannabis_texts = [
             f"🌿 {a_name} hurls a fistful of <b>Cannabis indica</b>! {d_name} is absolutely baked and refuses to fight! 💨",
             f"🌿 {a_name} deploys the <b>Cannabis indica</b>! {d_name} takes a massive hit and passes out! 💨",
@@ -714,6 +701,9 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
         out.append(("html", random.choice(cannabis_texts)))
         out.append(f"💤 {d_name} is asleep for {sleep_t} turn{'s' if sleep_t != 1 else ''}!")
         return out
+
+    # attacker used a non-sleep move — reset consecutive sleep tracking
+    attacker["last_used_sleep"] = False
 
     power = int(move.get("power", 40))
 
@@ -1646,10 +1636,9 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
 
 async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, winner: str, loser: str):
     # Persist HP + XP
-    xp_w, xp_l = award_battle_xp(winner, loser)
-
+    
     set_current_hp(state["user"], int(max(state["champ1"]["hp"], 0)))
-    set_current_hp(state["opponent"], int(max(state["champ2"]["hp"], 0)))
+xp_w, xp_l = award_battle_xp(winner, loser)
     save_players(players)
 
     w_name = display_name(winner, "Winner")
@@ -1744,8 +1733,8 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
                 secs = remaining % 60
                 wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
                 jdl_text = (
-                    f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ took a hit from the b"
-                    f"he refuses to fight. Let him chill lil bit! "
+                    f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ wants to smoke pot and chill "
+                    f", he refuses to fight. Let him rest! "
                     f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
                 )
                 await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
@@ -1767,8 +1756,8 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
     s1 = get_stats(c1_key, lv1)
     s2 = get_stats(c2_key, lv2)
 
-    champ1 = {"hp": int(p1_cur_hp), "max_hp": s1["hp"], "atk": s1["atk"], "def": s1["def"], "spd": s1["spd"], "burn_turns": 0, "sleep_turns": 0, "has_slept": False}
-    champ2 = {"hp": int(p2_cur_hp), "max_hp": s2["hp"], "atk": s2["atk"], "def": s2["def"], "spd": s2["spd"], "burn_turns": 0, "sleep_turns": 0, "has_slept": False}
+    champ1 = {"hp": int(p1_cur_hp), "max_hp": s1["hp"], "atk": s1["atk"], "def": s1["def"], "spd": s1["spd"], "burn_turns": 0, "sleep_turns": 0, "has_slept": False, "last_used_sleep": False}
+    champ2 = {"hp": int(p2_cur_hp), "max_hp": s2["hp"], "atk": s2["atk"], "def": s2["def"], "spd": s2["spd"], "burn_turns": 0, "sleep_turns": 0, "has_slept": False, "last_used_sleep": False}
 
     p1_name = display_name(user, "Player A")
     p2_name = display_name(opponent, "Player B")
