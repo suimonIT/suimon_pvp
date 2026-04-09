@@ -609,9 +609,9 @@ def heal_to_full(user_id: str) -> Tuple[int, int]:
 
 def type_mult(attacker_type: str, defender_type: str) -> Tuple[float, str]:
     if CHAMPS_BY_TYPE[attacker_type]["strong_against"] == defender_type:
-        return 1.12, "strong"
+        return 1.08, "strong"
     if CHAMPS_BY_TYPE[attacker_type]["weak_to"] == defender_type:
-        return 0.92, "weak"
+        return 0.95, "weak"
     return 1.0, "neutral"
 
 def pick_first_attacker(spd1: int, spd2: int) -> int:
@@ -650,7 +650,7 @@ def status_tick_lines(champ_state: Dict[str, Any], champ_display: str) -> List[s
     out: List[str] = []
     if champ_state.get("burn_turns", 0) > 0:
         champ_state["burn_turns"] -= 1
-        burn_dmg = max(2, int(round(champ_state["max_hp"] * random.uniform(0.07, 0.08))))
+        burn_dmg = max(2, int(round(champ_state["max_hp"] * random.uniform(0.08, 0.09))))
         champ_state["hp"] -= burn_dmg
         burn_texts = [
             f"{STATUS_EMOJI['burn']} {champ_display} burns like a bad batch from a sketchy cook! (-{burn_dmg})",
@@ -663,6 +663,9 @@ def status_tick_lines(champ_state: Dict[str, Any], champ_display: str) -> List[s
 def can_act(champ_state: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if champ_state.get("sleep_turns", 0) > 0:
         champ_state["sleep_turns"] -= 1
+        # if sleep just ended, mark as recoverable so Sleep Spore can't be immediately reused
+        if champ_state["sleep_turns"] == 0:
+            champ_state["has_slept"] = True
         sleep_texts = [
             "passed out harder than someone who mixed heroin with Benadryl!",
             "is down for the count — that wasn't just Cannabis indica!",
@@ -675,12 +678,12 @@ def can_act(champ_state: Dict[str, Any]) -> Tuple[bool, List[str]]:
         self_dmg = max(2, int(round(champ_state["max_hp"] * random.uniform(0.08, 0.10))))
         champ_state["hp"] -= self_dmg
         confuse_texts = [
-            f"is tweaking on PCP and attacks itself! (-{self_dmg})",
-            f"is fully gone on PCP — swings at thin air and connects with its own face! (-{self_dmg})",
-            f"took too much PCP and has no idea what's happening — self-inflicted! (-{self_dmg})",
-            f"is on a PCP trip and can't tell friend from foe — hits itself! (-{self_dmg})",
+            f"<b>{{champ_name}}</b> is tweaking on PCP and attacks itself! (-{self_dmg})",
+            f"<b>{{champ_name}}</b> is fully gone on PCP — swings at thin air and connects with its own face! (-{self_dmg})",
+            f"<b>{{champ_name}}</b> took too much PCP and has no idea what's happening — self-inflicted! (-{self_dmg})",
+            f"<b>{{champ_name}}</b> is on a PCP trip and can't tell friend from foe — hits itself! (-{self_dmg})",
         ]
-        return False, [random.choice(confuse_texts)]
+        return False, [("html_named", random.choice(confuse_texts))]
     return True, []
 
 def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_key: str, a_level: int, move: Dict[str, Any], attacker_name: Optional[str] = None, defender_name: Optional[str] = None, defender_level: int = 0) -> List[str]:
@@ -712,13 +715,18 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
         out.append(random.choice(miss_texts))
         return out
 
-    out.append(f"{TYPE_EMOJI[a['type']]} {a_name} {random.choice(move.get('text', ['attacks!']))}")
+    move_text = random.choice(move.get('text', ['attacks!']))
+    out.append(("html", f"{TYPE_EMOJI[a['type']]} <b>{html.escape(a_name)}</b> {move_text}"))
 
     kind = move.get("kind", "damage")
 
     if kind == "status_sleep":
         if defender.get("sleep_turns", 0) > 0:
             out.append(f"{STATUS_EMOJI['sleep']} {d_name} is already sleeping! Move wasted.")
+            attacker["last_used_sleep"] = False
+            return out
+        if defender.get("has_slept", False):
+            out.append(f"{STATUS_EMOJI['sleep']} {d_name} already recovered from sleep this battle! Move wasted.")
             attacker["last_used_sleep"] = False
             return out
         if attacker.get("last_used_sleep", False):
@@ -1808,21 +1816,21 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
         return
 
     # Consecutive fight limit (tournament only)
-    #if is_tournament_active():
-       # for pid in (user, opponent):
-         #   if _check_consecutive_fights(pid):
-           #     p_name = display_name(pid)
-           #     remaining = max(0, int(CONSECUTIVE_FIGHT_COOLDOWN - (time.time() - float(players[pid].get("last_fight_ts", 0)))))
-           #     mins = remaining // 60
-           #     secs = remaining % 60
-              #  wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
-             #   jdl_text = (
-               #     f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ wants to smoke pot and chill "
-                 #   f", he refuses to fight. Let him rest! "
-                  #  f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
-               # )
-              #  await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
-               # return
+    if is_tournament_active():
+        for pid in (user, opponent):
+            if _check_consecutive_fights(pid):
+                p_name = display_name(pid)
+                remaining = max(0, int(CONSECUTIVE_FIGHT_COOLDOWN - (time.time() - float(players[pid].get("last_fight_ts", 0)))))
+                mins = remaining // 60
+                secs = remaining % 60
+                wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
+                jdl_text = (
+                    f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ wants to smoke pot and chill "
+                    f", he refuses to fight. Let him rest! "
+                    f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
+                )
+                await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
+                return
 
     ACTIVE_BATTLES.add(chat_id)
 
@@ -2586,7 +2594,14 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
         ok, sleep_lines = can_act(attacker)
         if not ok:
-            await _battle_push(chat_id, state, context, f"{STATUS_EMOJI['sleep']} {a_name} {sleep_lines[0]}", delay=0.55, reply_markup=None)
+            raw = sleep_lines[0]
+            if isinstance(raw, tuple) and raw[0] == "html_named":
+                line_out = ("html", raw[1].format(champ_name=html.escape(a_name)))
+            elif isinstance(raw, tuple) and raw[0] == "html":
+                line_out = raw
+            else:
+                line_out = ("html", f"{STATUS_EMOJI['confuse']} <b>{html.escape(a_name)}</b> {raw}" if "PCP" in str(raw) else f"{STATUS_EMOJI['sleep']} <b>{html.escape(a_name)}</b> {raw}")
+            await _battle_push(chat_id, state, context, line_out, delay=0.55, reply_markup=None)
         else:
             # choose move by idx
             try:
