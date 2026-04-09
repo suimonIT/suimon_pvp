@@ -85,6 +85,13 @@ tournament_state: Dict[str, Any] = load_tournament()
 def is_tournament_active() -> bool:
     return tournament_state.get("active", False)
 
+def is_xp_boost_active() -> bool:
+    expires = tournament_state.get("xp_boost_expires", 0)
+    return time.time() < expires
+
+def get_xp_boost_multiplier() -> float:
+    return 1.5 if is_xp_boost_active() else 1.0
+
 def get_daily_suiballs() -> int:
     return DAILY_SUIBALLS_TOURNAMENT if is_tournament_active() else DAILY_SUIBALLS
 
@@ -144,10 +151,10 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
                 "carves deep — leaves marks the cult will be proud of!",
                 "rips through like a bad breakup — slow, painful, and very personal!",
             ]},
-            {"name": "Fire Fang", "kind": "damage", "power": 44, "acc": 0.94, "text": [
-                "bites in with the desperation of someone who needs a fix!",
-                "chomps down harder than a crackhead on a KitKat!",
-                "sinks its teeth in — no dinner first, no apology after!",
+            {"name": "Will-O-Wisp", "kind": "status_burn", "power": 0, "acc": 0.85, "burn_turns": (2, 3), "text": [
+                "pulls out a crackpipe and blows burning fumes directly into the opponent's face!",
+                "hotboxes the arena with something far worse than tobacco — Will-O-Wisp!",
+                "lights up a meth pipe and exhales pure fire — your lungs are not ready!",
             ]},
         ],
     },
@@ -156,10 +163,10 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         "type": "water",
         "base": {"hp": 115, "atk": 18, "def": 14, "spd": 8},
         "moves": [
-            {"name": "Water Gun", "kind": "damage", "power": 40, "acc": 0.96, "text": [
-                "pulls out and fires without warning — Water Gun!",
-                "sprays like a junkie who just found a vein!",
-                "shoots faster than your last Tinder date left!",
+            {"name": "Water Pulse", "kind": "status_confuse", "power": 0, "acc": 0.80, "confuse_turns": (1, 2), "confuse_rare_chance": 0.15, "text": [
+                "floods the arena with PCP-laced water — someone's going to hurt themselves!",
+                "sprays a mist of pure PCP — the opponent doesn't know what year it is anymore!",
+                "fires Water Pulse — laced with enough PCP to confuse a horse!",
             ]},
             {"name": "Bubble Beam", "kind": "damage", "power": 46, "acc": 0.93, "text": [
                 "releases suspiciously warm bubbles in places you didn't ask for!",
@@ -204,7 +211,7 @@ def pick_jdl_line() -> str:
     return PROFESSOR_JDL_LINES[idx]
 
 TYPE_EMOJI = {"fire": "🔥", "water": "💧", "nature": "🌿"}
-STATUS_EMOJI = {"burn": "🔥", "sleep": "💤"}
+STATUS_EMOJI = {"burn": "🔥", "sleep": "💤", "confuse": "🌀"}
 
 CHAMPS_BY_TYPE = {
     "fire": {"strong_against": "nature", "weak_to": "water"},
@@ -643,7 +650,7 @@ def status_tick_lines(champ_state: Dict[str, Any], champ_display: str) -> List[s
     out: List[str] = []
     if champ_state.get("burn_turns", 0) > 0:
         champ_state["burn_turns"] -= 1
-        burn_dmg = max(2, int(round(champ_state["max_hp"] * 0.06)))
+        burn_dmg = max(2, int(round(champ_state["max_hp"] * random.uniform(0.07, 0.08))))
         champ_state["hp"] -= burn_dmg
         burn_texts = [
             f"{STATUS_EMOJI['burn']} {champ_display} burns like a bad batch from a sketchy cook! (-{burn_dmg})",
@@ -663,6 +670,17 @@ def can_act(champ_state: Dict[str, Any]) -> Tuple[bool, List[str]]:
             "is out cold — the cult calls this 'enlightenment'.",
         ]
         return False, [random.choice(sleep_texts)]
+    if champ_state.get("confuse_turns", 0) > 0:
+        champ_state["confuse_turns"] -= 1
+        self_dmg = max(2, int(round(champ_state["max_hp"] * random.uniform(0.08, 0.10))))
+        champ_state["hp"] -= self_dmg
+        confuse_texts = [
+            f"is tweaking on PCP and attacks itself! (-{self_dmg})",
+            f"is fully gone on PCP — swings at thin air and connects with its own face! (-{self_dmg})",
+            f"took too much PCP and has no idea what's happening — self-inflicted! (-{self_dmg})",
+            f"is on a PCP trip and can't tell friend from foe — hits itself! (-{self_dmg})",
+        ]
+        return False, [random.choice(confuse_texts)]
     return True, []
 
 def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_key: str, a_level: int, move: Dict[str, Any], attacker_name: Optional[str] = None, defender_name: Optional[str] = None, defender_level: int = 0) -> List[str]:
@@ -730,6 +748,37 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
 
     # attacker used a non-sleep move — reset consecutive sleep tracking
     attacker["last_used_sleep"] = False
+
+    if kind == "status_burn":
+        if defender.get("burn_turns", 0) > 0:
+            out.append(f"{STATUS_EMOJI['burn']} {d_name} is already burning! The pipe backfires on {a_name}!")
+            burn_t = random.randint(1, 2)
+            attacker["burn_turns"] = max(attacker.get("burn_turns", 0), burn_t)
+            return out
+        burn_t = random.randint(*move.get("burn_turns", (2, 3)))
+        defender["burn_turns"] = burn_t
+        wisp_texts = [
+            f"🔥 {d_name} inhales the fumes — burning from the inside for {burn_t} turns!",
+            f"🔥 {d_name} gets hotboxed — Will-O-Wisp sets them on fire for {burn_t} turns!",
+            f"🔥 {d_name} takes a massive hit of the fumes — scorched for {burn_t} turns!",
+        ]
+        out.append(("html", random.choice(wisp_texts)))
+        return out
+
+    if kind == "status_confuse":
+        if defender.get("confuse_turns", 0) > 0:
+            out.append(f"{STATUS_EMOJI['confuse']} {d_name} is already on a PCP trip! Move wasted.")
+            return out
+        rare = random.random() < float(move.get("confuse_rare_chance", 0.15))
+        confuse_t = 2 if rare else 1
+        defender["confuse_turns"] = confuse_t
+        pulse_texts = [
+            f"🌀 {d_name} takes a face full of PCP-laced water and loses all grip on reality! ({confuse_t} turn{'s' if confuse_t != 1 else ''})",
+            f"🌀 {d_name} swallows the Water Pulse — fully dosed on PCP, confused for {confuse_t} turn{'s' if confuse_t != 1 else ''}!",
+            f"🌀 {d_name} is absolutely tweaking on PCP — doesn't know where it is for {confuse_t} turn{'s' if confuse_t != 1 else ''}!",
+        ]
+        out.append(("html", random.choice(pulse_texts)))
+        return out
 
     power = int(move.get("power", 40))
 
@@ -1557,6 +1606,9 @@ def award_battle_xp(winner: str, loser: str) -> Tuple[int, int]:
         xp_winner = 35  # higher level beating lower level = less XP
 
     xp_loser = 20
+    boost = get_xp_boost_multiplier()
+    xp_winner = int(round(xp_winner * boost))
+    xp_loser = int(round(xp_loser * boost))
     players[winner]["wins"] = int(players[winner].get("wins", 0)) + 1
     players[loser]["losses"] = int(players[loser].get("losses", 0)) + 1
     grant_xp_with_hp_adjust(winner, xp_winner)
@@ -1756,21 +1808,21 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
         return
 
     # Consecutive fight limit (tournament only)
-    #if is_tournament_active():
-       # for pid in (user, opponent):
-         #   if _check_consecutive_fights(pid):
-          #      p_name = display_name(pid)
-         #       remaining = max(0, int(CONSECUTIVE_FIGHT_COOLDOWN - (time.time() - float(players[pid].get("last_fight_ts", 0)))))
-          #      mins = remaining // 60
-          #      secs = remaining % 60
-          #      wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
-          #      jdl_text = (
-          #          f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ wants to smoke pot and chill "
-           #         f", he refuses to fight. Let him rest! "
-           #         f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
-           #     )
-            #    await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
-            #    return
+    if is_tournament_active():
+        for pid in (user, opponent):
+            if _check_consecutive_fights(pid):
+                p_name = display_name(pid)
+                remaining = max(0, int(CONSECUTIVE_FIGHT_COOLDOWN - (time.time() - float(players[pid].get("last_fight_ts", 0)))))
+                mins = remaining // 60
+                secs = remaining % 60
+                wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
+                jdl_text = (
+                    f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ wants to smoke pot and chill "
+                    f", he refuses to fight. Let him rest! "
+                    f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
+                )
+                await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
+                return
 
     ACTIVE_BATTLES.add(chat_id)
 
@@ -1788,8 +1840,8 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
     s1 = get_stats(c1_key, lv1)
     s2 = get_stats(c2_key, lv2)
 
-    champ1 = {"hp": int(p1_cur_hp), "max_hp": s1["hp"], "atk": s1["atk"], "def": s1["def"], "spd": s1["spd"], "burn_turns": 0, "sleep_turns": 0, "has_slept": False, "last_used_sleep": False}
-    champ2 = {"hp": int(p2_cur_hp), "max_hp": s2["hp"], "atk": s2["atk"], "def": s2["def"], "spd": s2["spd"], "burn_turns": 0, "sleep_turns": 0, "has_slept": False, "last_used_sleep": False}
+    champ1 = {"hp": int(p1_cur_hp), "max_hp": s1["hp"], "atk": s1["atk"], "def": s1["def"], "spd": s1["spd"], "burn_turns": 0, "sleep_turns": 0, "confuse_turns": 0, "has_slept": False, "last_used_sleep": False}
+    champ2 = {"hp": int(p2_cur_hp), "max_hp": s2["hp"], "atk": s2["atk"], "def": s2["def"], "spd": s2["spd"], "burn_turns": 0, "sleep_turns": 0, "confuse_turns": 0, "has_slept": False, "last_used_sleep": False}
 
     p1_name = display_name(user, "Player A")
     p2_name = display_name(opponent, "Player B")
@@ -2013,6 +2065,42 @@ async def change_champ(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"⚠️ HP reset to full (Lv.{level}). Nickname kept.",
         parse_mode="HTML"
     )
+
+async def xpboost(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_allowed_chat(update, context):
+        return
+    admin = await _bootstrap_user(update)
+    if not update.message or not update.effective_chat:
+        return
+    chat_id = int(update.effective_chat.id)
+    if not await is_privileged_user(context.bot, chat_id, int(admin)):
+        await update.message.reply_text("❌ Only privileged users can use this.")
+        return
+
+    duration_seconds = 2 * 60 * 60  # 2 hours
+    expires = time.time() + duration_seconds
+    tournament_state["xp_boost_expires"] = expires
+    save_tournament(tournament_state)
+
+    boost_text = (
+        "⚡ <b>XP BOOST ACTIVATED!</b> ⚡\n\n"
+        "All battles now grant <b>+50% XP</b> for the next <b>2 hours</b>!\n\n"
+        "🏆 Grind hard — this won't last forever.\n"
+        "⚔️ Get fighting!"
+    )
+    boost_image_candidates = ("xpboost.jpg", "xpboost.JPG", "xpboost.png")
+    boost_image = None
+    for name in boost_image_candidates:
+        candidate = os.path.join(BASE_DIR, name)
+        if os.path.isfile(candidate):
+            boost_image = candidate
+            break
+    if boost_image:
+        with open(boost_image, "rb") as photo:
+            await update.message.reply_photo(photo=photo, caption=boost_text, parse_mode="HTML")
+    else:
+        await update.message.reply_text(boost_text, parse_mode="HTML")
+
 
 async def endfight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_allowed_chat(update, context):
@@ -2577,6 +2665,7 @@ def main():
     app.add_handler(CommandHandler("tournamenton", tournamenton))
     app.add_handler(CommandHandler("tournamentoff", tournamentoff))
     app.add_handler(CommandHandler("changechamp", change_champ))
+    app.add_handler(CommandHandler("xpboost", xpboost))
     app.add_handler(CommandHandler("endfight", endfight))
     app.add_handler(CommandHandler("fight", fight))
 
