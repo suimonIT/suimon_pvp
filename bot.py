@@ -114,10 +114,12 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
                 "snaps its vine like a dominatrix on a coke binge!",
                 "lashes harder than a dealer who wasn't paid on time!",
             ]},
-            {"name": "Razor Leaf", "kind": "damage_highcrit", "power": 46, "acc": 0.92, "crit_bonus": 0.08, "text": [
-                "fires blades sharper than the needle your dealer uses!",
-                "cuts deeper than your dealer's prices after midnight!",
-                "slices through like a coke line on a Friday night!",
+            {"name": "Needle Rain", "kind": "damage_poison", "power": 46, "acc": 0.92, "poison_chance": 0.60, "poison_turns": (3, 4), "crit_bonus": 0.08, "text": [
+                "opens the vial, smiles, and lets it rain — each drop a promise you'll regret!",
+                "launches a volley of needles — not pharmacy grade, not even close!",
+                "rains down like a bad batch hitting three people at a party — fast, quiet, and ugly!",
+                "pierces through — the needles don't ask permission and neither does the poison!",
+                "fires off Needle Rain — somewhere between acupuncture and a funeral!",
             ]},
             {"name": "Leaf Storm", "kind": "damage", "power": 55, "acc": 0.88, "text": [
                 "unleashes Leaf Storm — sharper than your dad's comments about your life choices!",
@@ -151,10 +153,12 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
                 "carves deep — leaves marks the cult will be proud of!",
                 "rips through like a bad breakup — slow, painful, and very personal!",
             ]},
-            {"name": "Will-O-Wisp", "kind": "status_burn", "power": 0, "acc": 0.85, "burn_turns": (2, 3), "text": [
-                "pulls out a crackpipe and blows burning fumes directly into the opponent's face!",
-                "hotboxes the arena with something far worse than tobacco — Will-O-Wisp!",
-                "lights up a meth pipe and exhales pure fire — your lungs are not ready!",
+            {"name": "Wet Dream", "kind": "status_wet_dream", "power": 0, "acc": 0.90, "wet_dream_turns": (2, 3), "text": [
+                "slips something into their drink — they don't notice until they pisses themselves mid-fight!",
+                "whispers something in their ear — whatever it was, they pisses themselves instantly!",
+                "exhales cult smoke directly into their mouth — they pisses themselves before it even kicks in!",
+                "doses them with something that has no street name — they pisses themselves and forgets why!",
+                "reaches into the ritual bag and pulls out the good stuff — opponent pisses themselves on impact!",
             ]},
         ],
     },
@@ -163,7 +167,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         "type": "water",
         "base": {"hp": 115, "atk": 18, "def": 14, "spd": 8},
         "moves": [
-            {"name": "Water Pulse", "kind": "status_confuse", "power": 0, "acc": 0.80, "confuse_turns": (1, 2), "confuse_rare_chance": 0.15, "text": [
+            {"name": "Water Pulse", "kind": "status_confuse", "power": 0, "acc": 0.80, "confuse_turns": (1, 2), "confuse_rare_chance": 0.30, "text": [
                 "floods the arena with PCP-laced water — someone's going to hurt themselves!",
                 "sprays a mist of pure PCP — the opponent doesn't know what year it is anymore!",
                 "fires Water Pulse — laced with enough PCP to confuse a horse!",
@@ -188,18 +192,18 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
 }
 
 PROFESSOR_JDL_LINES = [
-    "👨‍🔬 <b>Professor JDL:</b> Nurse Joy just asked me for ketamine. I gave her the whole vial. She's now treating patients with remarkable confidence.",
-    "👨‍🔬 <b>Professor JDL:</b> Ninja did a line off my lab desk after that last move. I joined her. The results were inconclusive.",
-    "👨‍🔬 <b>Professor JDL:</b> The cult's fentanyl supply was meant to last the month. We're on day 3 of this battle.",
-    "👨‍🔬 <b>Professor JDL:</b> Three initiates didn't come home after the last round. I'm not worried — they know the ritual.",
-    "👨‍🔬 <b>Professor JDL:</b> I've seen people cut themselves for Suimon. There wasn't even this much blood.",
-    "👨‍🔬 <b>Professor JDL:</b> The Great Suimon demands sacrifice. After that move, I finally understand why.",
-    "👨‍🔬 <b>Professor JDL:</b> An initiate offered to end this fight the old fashioned way. I told him it wouldn't help. He did it anyway.",
-    "👨‍🔬 <b>Professor JDL:</b> I've been awake for 72 hours. The meth helps. This battle does not.",
-    "👨‍🔬 <b>Professor JDL:</b> Nurse Joy stopped responding after round 3. Professionally speaking, the dosage was correct.",
-    "👨‍🔬 <b>Professor JDL:</b> The cult elders have survived wars and dark rituals. They muted this battle after round 2.",
-    "👨‍🔬 <b>Professor JDL:</b> My research grant is gone. I spent it on the batch Ninja cooked. Worth it.",
-    "👨‍🔬 <b>Professor JDL:</b> We ran out of clean needles at round 4. The ritual must go on.",
+    "👨‍🔬 <b>Professor JDL:</b> An initiate drank from the wrong vial before round 2. He's been staring at his hands for 40 minutes. I told him the hands aren't real. He agreed. They might not be.",
+    "👨‍🔬 <b>Professor JDL:</b> The cult's DMT batch was blessed by three elders and cooked by a fourth who didn't survive the blessing. We used it anyway. The results were transcendent.",
+    "👨‍🔬 <b>Professor JDL:</b> Ninja dissolved something in the arena water supply before this fight. I asked what it was. She said 'progress'. I have been tasting colors for six rounds.",
+    "👨‍🔬 <b>Professor JDL:</b> I haven't slept since the last ritual. The Great Suimon appeared to me at round 4 and told me the winner was already chosen at birth. I'm not going to say which one.",
+    "👨‍🔬 <b>Professor JDL:</b> Two initiates started the battle as observers. They are now participants in something I cannot legally describe. The cult handbook calls it 'accelerated enlightenment'.",
+    "👨‍🔬 <b>Professor JDL:</b> The fentanyl was supposed to be for the post-match ceremony. Someone moved the ceremony to round 3. Nobody objected. I don't remember round 3.",
+    "👨‍🔬 <b>Professor JDL:</b> Nurse Joy administered the pre-fight injection herself this time. She used both hands and hummed something that wasn't a song. I didn't ask. You don't ask.",
+    "👨‍🔬 <b>Professor JDL:</b> I have conducted 47 Suimon battle analyses under controlled substances. This is the first one where the substances conducted me.",
+    "👨‍🔬 <b>Professor JDL:</b> The ketamine was optional. Everyone took it anyway. The Great Suimon doesn't tolerate hesitation and neither does the ritual.",
+    "👨‍🔬 <b>Professor JDL:</b> An elder told me this battle would break something in whoever watches it long enough. I've been watching since round 1. Something broke. I think it was a concept.",
+    "👨‍🔬 <b>Professor JDL:</b> We ran out of clean needles three rounds ago. The cult said the blood is the needle now. I've seen stranger methodology. I've published stranger methodology.",
+    "👨‍🔬 <b>Professor JDL:</b> The speedball was Ninja's idea. The second speedball was mine. The third was a collective decision made by people who no longer exist in a legal sense.",
 ]
 _last_jdl_index: int = -1
 
@@ -211,7 +215,7 @@ def pick_jdl_line() -> str:
     return PROFESSOR_JDL_LINES[idx]
 
 TYPE_EMOJI = {"fire": "🔥", "water": "💧", "nature": "🌿"}
-STATUS_EMOJI = {"burn": "🔥", "sleep": "💤", "confuse": "🌀"}
+STATUS_EMOJI = {"burn": "🔥", "sleep": "💤", "confuse": "🌀", "poison": "☠️", "wet_dream": "😨"}
 
 CHAMPS_BY_TYPE = {
     "fire": {"strong_against": "nature", "weak_to": "water"},
@@ -625,8 +629,8 @@ def level_gap_miss_penalty(attacker_level: int, defender_level: int) -> float:
     gap = attacker_level - defender_level
     if gap <= 0:
         return 0.0
-    # +4% per level gap, capped at 20%
-    return min(0.20, gap * 0.04)
+    # +6% per level gap, capped at 30%
+    return min(0.30, gap * 0.06)
 
 def calc_damage(attacker_atk: int, defender_def: int, level: int,
                 power: int, type_mult_: float, crit_mult: float,
@@ -658,6 +662,31 @@ def status_tick_lines(champ_state: Dict[str, Any], champ_display: str) -> List[s
             f"{STATUS_EMOJI['burn']} {champ_display} burns like a UTI after a festival weekend! (-{burn_dmg})",
         ]
         out.append(random.choice(burn_texts))
+    if champ_state.get("poison_turns", 0) > 0:
+        champ_state["poison_turns"] -= 1
+        poison_dmg = max(1, int(round(champ_state["max_hp"] * random.uniform(0.04, 0.05))))
+        champ_state["hp"] -= poison_dmg
+        poison_texts = [
+            f"{STATUS_EMOJI['poison']} {champ_display} twitches — the laced batch is working its way through! (-{poison_dmg})",
+            f"{STATUS_EMOJI['poison']} {champ_display} goes pale. The toxin doesn't care about your schedule. (-{poison_dmg})",
+            f"{STATUS_EMOJI['poison']} {champ_display} feels it now — Needle Rain's parting gift! (-{poison_dmg})",
+            f"{STATUS_EMOJI['poison']} {champ_display} is dissolving from the inside — slow, chemical, inevitable! (-{poison_dmg})",
+            f"{STATUS_EMOJI['poison']} Another tick. {champ_display} didn't sign up for this batch. (-{poison_dmg})",
+            f"{STATUS_EMOJI['poison']} {champ_display} gurgles. The poison has opinions. (-{poison_dmg})",
+        ]
+        out.append(random.choice(poison_texts))
+    if champ_state.get("wet_dream_turns", 0) > 0:
+        champ_state["wet_dream_turns"] -= 1
+        if champ_state["wet_dream_turns"] == 0:
+            out.append(f"{STATUS_EMOJI['wet_dream']} {champ_display} comes back down — whatever that was, it's out of the system. Back to normal.")
+        else:
+            wet_dream_tick_texts = [
+                f"{STATUS_EMOJI['wet_dream']} {champ_display} is still seeing things — hands won't stop shaking! (-10% dmg this turn)",
+                f"{STATUS_EMOJI['wet_dream']} {champ_display} flinches at shadows — the dose is still peaking! (-10% dmg this turn)",
+                f"{STATUS_EMOJI['wet_dream']} {champ_display} can't hold it together — something in the ritual bag broke them! (-10% dmg this turn)",
+                f"{STATUS_EMOJI['wet_dream']} {champ_display} is mid-trip and mid-fight — neither is going well! (-10% dmg this turn)",
+            ]
+            out.append(random.choice(wet_dream_tick_texts))
     return out
 
 def can_act(champ_state: Dict[str, Any]) -> Tuple[bool, List[str]]:
@@ -750,6 +779,42 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
         out.append(f"💤 {d_name} is asleep for {sleep_t} turn{'s' if sleep_t != 1 else ''}!")
         return out
 
+    if kind == "status_wet_dream":
+        uses_left = attacker.get("wet_dream_uses_left", 0)
+        if uses_left <= 0:
+            out.append(f"{STATUS_EMOJI['wet_dream']} {a_name} tries to frighten {d_name} — but the nerve is gone! (Used up)")
+            return out
+        if defender.get("wet_dream_turns", 0) > 0:
+            out.append(f"{STATUS_EMOJI['wet_dream']} {d_name} is already frightened! Can't stack Fright.")
+            return out
+        # Direct damage hit (weak but guaranteed)
+        mult, eff = type_mult(a["type"], d["type"])
+        wet_dream_dmg = calc_damage(
+            attacker_atk=int(attacker["atk"]),
+            defender_def=int(defender["def"]),
+            level=a_level,
+            power=28,
+            type_mult_=mult,
+            crit_mult=1.0,
+            defender_level=defender_level,
+        )
+        defender["hp"] -= wet_dream_dmg
+        turns = move.get("wet_dream_turns", (2, 3))
+        wet_dream_t = random.randint(int(turns[0]), int(turns[1]))
+        defender["wet_dream_turns"] = wet_dream_t
+        attacker["wet_dream_uses_left"] = uses_left - 1
+        wet_dream_texts = [
+            f"😨 {d_name} takes the hit and something behind their eyes breaks — <b>{wet_dream_dmg} dmg</b>! Shaking too hard to fight properly! (-10% dmg, {wet_dream_t} turns)",
+            f"😨 {d_name} catches a face full of whatever that was — <b>{wet_dream_dmg} dmg</b>! Pupils blown, hands trembling! (-10% dmg, {wet_dream_t} turns)",
+            f"😨 {a_name} lands the strike and watches {d_name} realize what's in their bloodstream — <b>{wet_dream_dmg} dmg</b>! They're not okay! (-10% dmg, {wet_dream_t} turns)",
+            f"😨 {d_name} got touched by something that cannot be unfelt — <b>{wet_dream_dmg} dmg</b>! Fight-or-flight chose flight! (-10% dmg, {wet_dream_t} turns)",
+            f"😨 {d_name} staggers back — the dose hit the wrong nerve! <b>{wet_dream_dmg} dmg</b>! Body's fighting itself now! (-10% dmg, {wet_dream_t} turns)",
+        ]
+        out.append(("html", random.choice(wet_dream_texts)))
+        remaining = attacker["wet_dream_uses_left"]
+        out.append(f"📋 Fright uses remaining: {remaining}/2")
+        return out
+
     # attacker used a non-sleep move — reset consecutive sleep tracking
     attacker["last_used_sleep"] = False
 
@@ -801,6 +866,11 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
         crit_mult=crit_mult,
         defender_level=defender_level,
     )
+
+    # Fright debuff: frightened attacker deals 10% less damage
+    if attacker.get("wet_dream_turns", 0) > 0:
+        dmg = max(1, int(round(dmg * 0.90)))
+
     defender["hp"] -= dmg
 
     eff_txt = ""
@@ -822,6 +892,20 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
         if defender.get("burn_turns", 0) == 0 and random.random() < float(move.get("burn_chance", 0.25)):
             defender["burn_turns"] = 3
             out.append(f"{STATUS_EMOJI['burn']} {d_name} was burned! (3 turns)")
+
+    if kind == "damage_poison":
+        if defender.get("poison_turns", 0) == 0 and random.random() < float(move.get("poison_chance", 0.60)):
+            turns = move.get("poison_turns", (3, 4))
+            poison_t = random.randint(int(turns[0]), int(turns[1]))
+            defender["poison_turns"] = poison_t
+            poison_apply_texts = [
+                f"{STATUS_EMOJI['poison']} {d_name} got dosed — the toxin's already in the blood! ({poison_t} turns)",
+                f"{STATUS_EMOJI['poison']} {d_name} didn't feel it hit — that's the worst kind! ({poison_t} turns)",
+                f"{STATUS_EMOJI['poison']} The laced tip found a vein. {d_name} has {poison_t} turns to regret standing still.",
+                f"{STATUS_EMOJI['poison']} {d_name} is running on borrowed time — poison's cooking from the inside! ({poison_t} turns)",
+                f"{STATUS_EMOJI['poison']} {d_name} is infected. Needle Rain delivers. ({poison_t} turns of pure suffering)",
+            ]
+            out.append(random.choice(poison_apply_texts))
 
     return out
 
@@ -1801,8 +1885,8 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
     s1 = get_stats(c1_key, lv1)
     s2 = get_stats(c2_key, lv2)
 
-    champ1 = {"hp": int(p1_cur_hp), "max_hp": s1["hp"], "atk": s1["atk"], "def": s1["def"], "spd": s1["spd"], "burn_turns": 0, "sleep_turns": 0, "confuse_turns": 0, "has_slept": False, "last_used_sleep": False}
-    champ2 = {"hp": int(p2_cur_hp), "max_hp": s2["hp"], "atk": s2["atk"], "def": s2["def"], "spd": s2["spd"], "burn_turns": 0, "sleep_turns": 0, "confuse_turns": 0, "has_slept": False, "last_used_sleep": False}
+    champ1 = {"hp": int(p1_cur_hp), "max_hp": s1["hp"], "atk": s1["atk"], "def": s1["def"], "spd": s1["spd"], "burn_turns": 0, "sleep_turns": 0, "confuse_turns": 0, "poison_turns": 0, "wet_dream_turns": 0, "wet_dream_uses_left": 2 if c1_key == "suimander" else 0, "has_slept": False, "last_used_sleep": False}
+    champ2 = {"hp": int(p2_cur_hp), "max_hp": s2["hp"], "atk": s2["atk"], "def": s2["def"], "spd": s2["spd"], "burn_turns": 0, "sleep_turns": 0, "confuse_turns": 0, "poison_turns": 0, "wet_dream_turns": 0, "wet_dream_uses_left": 2 if c2_key == "suimander" else 0, "has_slept": False, "last_used_sleep": False}
 
     p1_name = display_name(user, "Player A")
     p2_name = display_name(opponent, "Player B")
