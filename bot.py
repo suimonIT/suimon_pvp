@@ -138,10 +138,12 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         "type": "fire",
         "base": {"hp": 102, "atk": 22, "def": 10, "spd": 12},
         "moves": [
-            {"name": "Ember", "kind": "damage_burn", "power": 40, "acc": 0.95, "burn_chance": 0.30, "text": [
-                "spits sparks like a crackpipe at 3am!",
-                "launches hot ones — hotter than that DM you regretted sending!",
-                "spits fire like a meth head who just found out the batch is pure!",
+            {"name": "Wet Dream", "kind": "status_wet_dream", "power": 0, "acc": 0.90, "wet_dream_turns": (2, 3), "text": [
+                "slips something into their drink — they don't notice until they pisses themselves mid-fight!",
+                "whispers something in their ear — whatever it was, they pisses themselves instantly!",
+                "exhales cult smoke directly into their mouth — they pisses themselves before it even kicks in!",
+                "doses them with something that has no street name — they pisses themselves and forgets why!",
+                "reaches into the ritual bag and pulls out the good stuff — opponent pisses themselves on impact!",
             ]},
             {"name": "Flamethrower", "kind": "damage", "power": 55, "acc": 0.90, "text": [
                 "blasts a stream hotter than a speedball hitting wrong!",
@@ -153,12 +155,12 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
                 "carves deep — leaves marks the cult will be proud of!",
                 "rips through like a bad breakup — slow, painful, and very personal!",
             ]},
-            {"name": "Wet Dream", "kind": "status_wet_dream", "power": 0, "acc": 0.90, "wet_dream_turns": (2, 3), "text": [
-                "slips something into their drink — they don't notice until they pisses themselves mid-fight!",
-                "whispers something in their ear — whatever it was, they pisses themselves instantly!",
-                "exhales cult smoke directly into their mouth — they pisses themselves before it even kicks in!",
-                "doses them with something that has no street name — they pisses themselves and forgets why!",
-                "reaches into the ritual bag and pulls out the good stuff — opponent pisses themselves on impact!",
+            {"name": "Will-O-Wisp", "kind": "status_burn", "power": 0, "acc": 0.85, "burn_turns": (2, 3), "text": [
+                "pulls out a crackpipe and blows burning fumes directly into the opponent's face!",
+                "hotboxes the arena with something far worse than tobacco — Will-O-Wisp!",
+                "lights up a meth pipe and exhales pure fire — your lungs are not ready!",
+                "torches the arena with fumes from a pipe that definitely wasn't bought at a gas station!",
+                "exhales something that strips paint, scars lungs, and burns for days — classic Will-O-Wisp!",
             ]},
         ],
     },
