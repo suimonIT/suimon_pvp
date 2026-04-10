@@ -1816,21 +1816,21 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
         return
 
     # Consecutive fight limit (tournament only)
-    if is_tournament_active():
-        for pid in (user, opponent):
-            if _check_consecutive_fights(pid):
-                p_name = display_name(pid)
-                remaining = max(0, int(CONSECUTIVE_FIGHT_COOLDOWN - (time.time() - float(players[pid].get("last_fight_ts", 0)))))
-                mins = remaining // 60
-                secs = remaining % 60
-                wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
-                jdl_text = (
-                    f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ wants to smoke pot and chill "
-                    f", he refuses to fight. Let him rest! "
-                    f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
-                )
-                await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
-                return
+  #  if is_tournament_active():
+      #  for pid in (user, opponent):
+       #     if _check_consecutive_fights(pid):
+         #       p_name = display_name(pid)
+          #      remaining = max(0, int(CONSECUTIVE_FIGHT_COOLDOWN - (time.time() - float(players[pid].get("last_fight_ts", 0)))))
+           #     mins = remaining // 60
+            #    secs = remaining % 60
+             #   wait_str = f"{mins}m {secs}s" if mins else f"{secs}s"
+              #  jdl_text = (
+                #    f"👨\u200d🔬 <b>Professor JDL:</b> Dude <b>{p_name}</b>, your champ wants to smoke pot and chill "
+                #    f", he refuses to fight. Let him rest! "
+                 #   f"\n\n⏱️ Cooldown: <b>{wait_str}</b>"
+             #   )
+              #  await context.bot.send_message(chat_id=chat_id, text=jdl_text, parse_mode="HTML")
+              #  return
 
     ACTIVE_BATTLES.add(chat_id)
 
