@@ -647,7 +647,7 @@ def calc_damage(attacker_atk: int, defender_def: int, level: int,
     effective_level = max(level, 5)
     level_factor = 1.0 + (effective_level - 3) * 0.015
     base = 4.0 * power * effective_atk / (effective_def * 1.25)
-    base = (base / 10) + 2
+    base = (base / 8) + 2
     base *= level_factor
     base *= random.uniform(0.92, 1.08)
     dmg = int(round(base * type_mult_ * crit_mult))
@@ -1719,14 +1719,14 @@ def _battle_move_keyboard(chat_id: int, champ_key: str, player_id: str, state: D
         rows.append(row)
     balls = int(players.get(player_id, {}).get("suiballs", 0))
     used_this_battle = state.get("suiballs_used", {}).get(player_id, 0)
-    remaining_uses = max(0, 2 - used_this_battle)
+    remaining_uses = max(0, 1 - used_this_battle)
     can_heal = balls > 0 and remaining_uses > 0
     if remaining_uses <= 0:
-        ball_label = f"🧿 Suiball (0/2 left)"
+        ball_label = f"🧿 Suiball (0/1 left)"
     elif balls <= 0:
-        ball_label = f"🧿 Suiball (no balls · {remaining_uses}/2 left)"
+        ball_label = f"🧿 Suiball (no balls · {remaining_uses}/1 left)"
     else:
-        ball_label = f"🧿 Use Suiball ({balls} 🎒 · {remaining_uses}/2 left)"
+        ball_label = f"🧿 Use Suiball ({balls} 🎒 · {remaining_uses}/1 left)"
     if can_heal:
         rows.append([InlineKeyboardButton(ball_label, callback_data=f"heal|{chat_id}")])
     else:
