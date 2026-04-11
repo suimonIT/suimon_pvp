@@ -107,7 +107,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
     "basaurimon": {
         "display": "Basaurimon",
         "type": "nature",
-        "base": {"hp": 110, "atk": 19, "def": 12, "spd": 9},
+        "base": {"hp": 290, "atk": 19, "def": 12, "spd": 9},
         "moves": [
             {"name": "Vine Whip", "kind": "damage", "power": 40, "acc": 0.95, "text": [
                 "whips out something long and flexible — no lube included!",
@@ -136,7 +136,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
     "suimander": {
         "display": "Suimander",
         "type": "fire",
-        "base": {"hp": 102, "atk": 22, "def": 10, "spd": 12},
+        "base": {"hp": 280, "atk": 22, "def": 10, "spd": 12},
         "moves": [
             {"name": "Wet Dream", "kind": "status_wet_dream", "power": 0, "acc": 0.90, "wet_dream_turns": (2, 3), "text": [
                 "slips something into their drink — they don't notice until they pisses themselves mid-fight!",
@@ -167,7 +167,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
     "suiqrtle": {
         "display": "Suiqrtle",
         "type": "water",
-        "base": {"hp": 115, "atk": 18, "def": 14, "spd": 8},
+        "base": {"hp": 295, "atk": 18, "def": 14, "spd": 8},
         "moves": [
             {"name": "Water Pulse", "kind": "status_confuse", "power": 0, "acc": 0.80, "confuse_turns": (1, 2), "confuse_rare_chance": 0.30, "text": [
                 "floods the arena with PCP-laced water — someone's going to hurt themselves!",
@@ -501,10 +501,12 @@ def xp_needed(level: int) -> int:
     level = max(1, min(int(level), MAX_LEVEL))
     base = int(60 + (level - 1) * 18 + (level ** 2) * 3)
     if level >= 9:
-        return int(base * 4.0)
+        return int(base * 5.5)
     if level >= 8:
-        return int(base * 2.5)
-    return base
+        return int(base * 3.5)
+    if level >= 7:
+        return int(base * 1.4)
+    return int(base * 0.6)
 
 def champ_key_from_input(arg: str) -> Optional[str]:
     if not arg:
@@ -524,7 +526,7 @@ def champ_key_from_input(arg: str) -> Optional[str]:
 def get_stats(champ_key: str, level: int) -> Dict[str, int]:
     level = max(1, min(int(level), MAX_LEVEL))
     base = champ_from_key(champ_key)["base"]
-    # HP scales +2/level — proportional to damage table (Lv9 +16 HP vs +7 DMG ≈ same ratio)
+    # HP scales +2/level — Lv9 gets +16 HP over Lv1 (ratio ~1.06x, matches DMG ratio)
     hp = int(round(base["hp"] + (level - 1) * 2))
     # ATK floors at Lv5 so Lv1-5 deal identical damage
     stat_level = max(level, 5)
@@ -646,7 +648,7 @@ def calc_damage(attacker_atk: int, defender_def: int, level: int,
     effective_level = max(level, 5)
     level_factor = 1.0 + (effective_level - 3) * 0.015
     base = 4.0 * power * effective_atk / (effective_def * 1.25)
-    base = (base / 8) + 2
+    base = (base / 10) + 2
     base *= level_factor
     base *= random.uniform(0.92, 1.08)
     dmg = int(round(base * type_mult_ * crit_mult))
