@@ -525,7 +525,8 @@ def get_stats(champ_key: str, level: int) -> Dict[str, int]:
     level = max(1, min(int(level), MAX_LEVEL))
     base = champ_from_key(champ_key)["base"]
     hp = int(round(base["hp"] + (level - 1) * 9))
-    atk = int(round(base["atk"] + (level - 1) * 1))
+    stat_level = max(level, 5)  # ATK floors at Lv5 — Lv1-5 deal identical damage
+    atk = int(round(base["atk"] + (stat_level - 1) * 0.6))
     df = int(round(base["def"] + (level - 1) * 1))
     spd = int(round(base["spd"] + (level - 1) * 1))
     return {"hp": hp, "atk": atk, "def": df, "spd": spd}
@@ -631,21 +632,18 @@ def level_gap_miss_penalty(attacker_level: int, defender_level: int) -> float:
     gap = attacker_level - defender_level
     if gap <= 0:
         return 0.0
-    # +6% per level gap, capped at 30%
-    return min(0.30, gap * 0.06)
+    # +3% per level gap, capped at 15%
+    return min(0.15, gap * 0.03)
 
 def calc_damage(attacker_atk: int, defender_def: int, level: int,
                 power: int, type_mult_: float, crit_mult: float,
                 defender_level: int = 0) -> int:
+    effective_atk = max(1, int(attacker_atk))
     effective_def = max(1, int(defender_def))
-    # Underdog defense bonus: +3% per level the defender is below attacker, capped at 12%
-    gap = level - defender_level
-    if gap > 0 and defender_level > 0:
-        def_bonus = 1.0 + min(0.12, gap * 0.03)
-        effective_def = int(effective_def * def_bonus)
-    # Level factor is capped at 8 to prevent high levels from dominating
-    level_factor = (2 * min(level, 8) / 5 + 2) / (2 * 5 / 5 + 2)
-    base = 4.0 * power * attacker_atk / (effective_def * 1.25)
+    # Level 1-5 all use level 5's factor — identical damage floor at 39
+    effective_level = max(level, 5)
+    level_factor = 1.0 + (effective_level - 3) * 0.015
+    base = 4.0 * power * effective_atk / (effective_def * 1.25)
     base = (base / 8) + 2
     base *= level_factor
     base *= random.uniform(0.92, 1.08)
@@ -2574,7 +2572,7 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.answer("❌ You have no Suiballs!", show_alert=True)
             return
         used_this_battle = state.get("suiballs_used", {}).get(clicker, 0)
-        if used_this_battle >= 2:
+        if used_this_battle >= 1:
             await query.answer()
             return
         state["resolving"] = True
