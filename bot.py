@@ -524,8 +524,10 @@ def champ_key_from_input(arg: str) -> Optional[str]:
 def get_stats(champ_key: str, level: int) -> Dict[str, int]:
     level = max(1, min(int(level), MAX_LEVEL))
     base = champ_from_key(champ_key)["base"]
-    hp = int(round(base["hp"] + (level - 1) * 9))
-    stat_level = max(level, 5)  # ATK floors at Lv5 — Lv1-5 deal identical damage
+    # HP scales +2/level — proportional to damage table (Lv9 +16 HP vs +7 DMG ≈ same ratio)
+    hp = int(round(base["hp"] + (level - 1) * 2))
+    # ATK floors at Lv5 so Lv1-5 deal identical damage
+    stat_level = max(level, 5)
     atk = int(round(base["atk"] + (stat_level - 1) * 0.6))
     df = int(round(base["def"] + (level - 1) * 1))
     spd = int(round(base["spd"] + (level - 1) * 1))
@@ -640,7 +642,7 @@ def calc_damage(attacker_atk: int, defender_def: int, level: int,
                 defender_level: int = 0) -> int:
     effective_atk = max(1, int(attacker_atk))
     effective_def = max(1, int(defender_def))
-    # Level 1-5 all use level 5's factor — identical damage floor at 39
+    # Lv1-5 all use Lv5 factor — identical damage floor
     effective_level = max(level, 5)
     level_factor = 1.0 + (effective_level - 3) * 0.015
     base = 4.0 * power * effective_atk / (effective_def * 1.25)
@@ -2572,7 +2574,7 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.answer("❌ You have no Suiballs!", show_alert=True)
             return
         used_this_battle = state.get("suiballs_used", {}).get(clicker, 0)
-        if used_this_battle >= 1:
+        if used_this_battle >= 2:
             await query.answer()
             return
         state["resolving"] = True
