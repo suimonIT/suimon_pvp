@@ -528,9 +528,8 @@ def get_stats(champ_key: str, level: int) -> Dict[str, int]:
     base = champ_from_key(champ_key)["base"]
     # HP scales +2/level — Lv9 gets +16 HP over Lv1 (ratio ~1.06x, matches DMG ratio)
     hp = int(round(base["hp"] + (level - 1) * 2))
-    # ATK floors at Lv5 so Lv1-5 deal identical damage
-    stat_level = max(level, 5)
-    atk = int(round(base["atk"] + (stat_level - 1) * 0.6))
+    # ATK scales +0.25/level from Lv1 — low levels hit almost as hard as high levels
+    atk = int(round(base["atk"] + (level - 1) * 0.25))
     df = int(round(base["def"] + (level - 1) * 1))
     spd = int(round(base["spd"] + (level - 1) * 1))
     return {"hp": hp, "atk": atk, "def": df, "spd": spd}
@@ -2576,7 +2575,7 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.answer("❌ You have no Suiballs!", show_alert=True)
             return
         used_this_battle = state.get("suiballs_used", {}).get(clicker, 0)
-        if used_this_battle >= 2:
+        if used_this_battle >= 1:
             await query.answer()
             return
         state["resolving"] = True
