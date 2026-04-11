@@ -107,7 +107,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
     "basaurimon": {
         "display": "Basaurimon",
         "type": "nature",
-        "base": {"hp": 290, "atk": 19, "def": 12, "spd": 9},
+        "base": {"hp": 290, "atk": 21, "def": 11, "spd": 9},
         "moves": [
             {"name": "Vine Whip", "kind": "damage", "power": 40, "acc": 0.95, "text": [
                 "whips out something long and flexible — no lube included!",
@@ -167,7 +167,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
     "suiqrtle": {
         "display": "Suiqrtle",
         "type": "water",
-        "base": {"hp": 295, "atk": 18, "def": 14, "spd": 8},
+        "base": {"hp": 295, "atk": 21, "def": 12, "spd": 8},
         "moves": [
             {"name": "Water Pulse", "kind": "status_confuse", "power": 0, "acc": 0.80, "confuse_turns": (1, 2), "confuse_rare_chance": 0.30, "text": [
                 "floods the arena with PCP-laced water — someone's going to hurt themselves!",
@@ -530,7 +530,7 @@ def get_stats(champ_key: str, level: int) -> Dict[str, int]:
     hp = int(round(base["hp"] + (level - 1) * 2))
     # ATK scales +0.25/level from Lv1 — low levels hit almost as hard as high levels
     atk = int(round(base["atk"] + (level - 1) * 0.25))
-    df = int(round(base["def"] + (level - 1) * 1))
+    df = int(round(base["def"] + (level - 1) * 0.3))
     spd = int(round(base["spd"] + (level - 1) * 1))
     return {"hp": hp, "atk": atk, "def": df, "spd": spd}
 
