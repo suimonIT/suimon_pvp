@@ -46,7 +46,7 @@ BATTLES: Dict[int, Dict[str, Any]] = {}
 # Text pacing (seconds)
 # -------------------------
 INTRO_DELAY = 0.8
-REPOSITION_COOLDOWN = 8.0
+REPOSITION_COOLDOWN = 3.5
 COUNTDOWN_STEP_DELAY = 0.55
 ACTION_DELAY = 0.70
 HUD_DELAY = 0.45
