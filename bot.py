@@ -1787,13 +1787,13 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
     # show a round header every 2 actions (start of new round)
     if state["actions"] % 2 == 0:
         state["round"] += 1
-        await _battle_push(chat_id, state, context, f"━━━ Round {state['round']} ━━━", delay=0.35)
+        await _battle_push(chat_id, state, context, f"━━━ Round {state['round']} ━━━", delay=0.35, force_reposition=False)
     name = _battle_turn_name(state)
     champ_key = _battle_turn_champ_key(state)
     turn_user = _battle_turn_user(state)
     champ_name = champ_display_for_player(turn_user, champ_key)
     kb = _battle_move_keyboard(chat_id, champ_key, turn_user, state)
-    await _battle_push(chat_id, state, context, f"\n🎯 {name}'s turn — choose a move for {champ_name}:", delay=0.05, reply_markup=kb, force_reposition=False)
+    await _battle_push(chat_id, state, context, f"\n🎯 {name}'s turn — choose a move for {champ_name}:", delay=0.05, reply_markup=kb, force_reposition=True)
 
 async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, winner: str, loser: str):
     # Persist HP + XP
