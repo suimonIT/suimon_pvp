@@ -25,7 +25,7 @@ TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
-ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848, -1003407035529, -1003350381334}
+ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848, -1003407035529}
 # Only these user IDs + the Telegram group owner can use privileged admin commands
 PRIVILEGED_USER_IDS = {1638084297, 7105730933}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
@@ -192,29 +192,6 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         ],
     },
 }
-
-PROFESSOR_JDL_LINES = [
-    "👨‍🔬 <b>Professor JDL:</b> An initiate drank from the wrong vial before round 2. He's been staring at his hands for 40 minutes. I told him the hands aren't real. He agreed. They might not be.",
-    "👨‍🔬 <b>Professor JDL:</b> The cult's DMT batch was blessed by three elders and cooked by a fourth who didn't survive the blessing. We used it anyway. The results were transcendent.",
-    "👨‍🔬 <b>Professor JDL:</b> Ninja dissolved something in the arena water supply before this fight. I asked what it was. She said 'progress'. I have been tasting colors for six rounds.",
-    "👨‍🔬 <b>Professor JDL:</b> I haven't slept since the last ritual. The Great Suimon appeared to me at round 4 and told me the winner was already chosen at birth. I'm not going to say which one.",
-    "👨‍🔬 <b>Professor JDL:</b> Two initiates started the battle as observers. They are now participants in something I cannot legally describe. The cult handbook calls it 'accelerated enlightenment'.",
-    "👨‍🔬 <b>Professor JDL:</b> The fentanyl was supposed to be for the post-match ceremony. Someone moved the ceremony to round 3. Nobody objected. I don't remember round 3.",
-    "👨‍🔬 <b>Professor JDL:</b> Nurse Joy administered the pre-fight injection herself this time. She used both hands and hummed something that wasn't a song. I didn't ask. You don't ask.",
-    "👨‍🔬 <b>Professor JDL:</b> I have conducted 47 Suimon battle analyses under controlled substances. This is the first one where the substances conducted me.",
-    "👨‍🔬 <b>Professor JDL:</b> The ketamine was optional. Everyone took it anyway. The Great Suimon doesn't tolerate hesitation and neither does the ritual.",
-    "👨‍🔬 <b>Professor JDL:</b> An elder told me this battle would break something in whoever watches it long enough. I've been watching since round 1. Something broke. I think it was a concept.",
-    "👨‍🔬 <b>Professor JDL:</b> We ran out of clean needles three rounds ago. The cult said the blood is the needle now. I've seen stranger methodology. I've published stranger methodology.",
-    "👨‍🔬 <b>Professor JDL:</b> The speedball was Ninja's idea. The second speedball was mine. The third was a collective decision made by people who no longer exist in a legal sense.",
-]
-_last_jdl_index: int = -1
-
-def pick_jdl_line() -> str:
-    global _last_jdl_index
-    available = [i for i in range(len(PROFESSOR_JDL_LINES)) if i != _last_jdl_index]
-    idx = random.choice(available)
-    _last_jdl_index = idx
-    return PROFESSOR_JDL_LINES[idx]
 
 TYPE_EMOJI = {"fire": "🔥", "water": "💧", "nature": "🌿"}
 STATUS_EMOJI = {"burn": "🔥", "sleep": "💤", "confuse": "🌀", "poison": "☠️", "wet_dream": "😨"}
@@ -1798,10 +1775,6 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
     if state["actions"] % 2 == 0:
         state["round"] += 1
         await _battle_push(chat_id, state, context, f"━━━ Round {state['round']} ━━━", delay=0.35)
-        if state["round"] >= 2 and random.random() < 0.50:
-            jdl_line = pick_jdl_line()
-            await _battle_push(chat_id, state, context, "\n" + jdl_line, delay=10.0, raw_html=True)
-
     name = _battle_turn_name(state)
     champ_key = _battle_turn_champ_key(state)
     turn_user = _battle_turn_user(state)
@@ -1902,6 +1875,7 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
         "last_rendered_text": "",
         "last_reply_markup": None,
         "resolving": False,
+        "resolving_since": 0.0,
         "user": user,
         "opponent": opponent,
         "p1_name": p1_name,
@@ -2547,13 +2521,20 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     clicker = str(query.from_user.id)
 
-    if state.get("resolving"):
-        await query.answer("Action is already resolving…", show_alert=False)
-        return
+    # Always answer query first so Telegram doesn't show loading spinner forever
+    await query.answer()
 
     if kind == "noop":
-        await query.answer()
         return
+
+    if state.get("resolving"):
+        # Auto-reset if stuck for more than 30 seconds (network issues)
+        resolving_since = float(state.get("resolving_since", 0.0))
+        if resolving_since > 0 and (time.monotonic() - resolving_since) > 30:
+            state["resolving"] = False
+            state["resolving_since"] = 0.0
+        else:
+            return
 
     if kind == "ff":
         # forfeit: must be a participant
@@ -2579,6 +2560,7 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.answer()
             return
         state["resolving"] = True
+        state["resolving_since"] = time.monotonic()
         try:
             players[clicker]["suiballs"] = balls - 1
             save_players(players)  # persist suiball deduction immediately
@@ -2609,6 +2591,7 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     state["resolving"] = True
+    state["resolving_since"] = time.monotonic()
 
     # Resolve a turn action
     attacker = _battle_turn_champ_state(state)
