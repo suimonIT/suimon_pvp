@@ -1456,14 +1456,22 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mx = get_stats(champ_key, lv)["hp"]
     cur = get_or_init_current_hp(user)
     if cur >= mx:
-        await update.message.reply_text("✅ Your champ is already at full HP.", reply_markup=main_menu_kb(user))
+        heal_image = resolve_heal_image_path()
+        if heal_image:
+            with open(heal_image, "rb") as photo:
+                await update.message.reply_photo(photo=photo, caption="✅ Your champ is already at full HP.", reply_markup=main_menu_kb(user))
+        else:
+            await update.message.reply_text("✅ Your champ is already at full HP.", reply_markup=main_menu_kb(user))
         return
     balls = int(p.get("suiballs", 0))
     if balls <= 0:
-        await update.message.reply_text(
-            f"❌ You have no Suiballs.\nYou get {DAILY_SUIBALLS} per day (cap {SUIBALL_CAP}).\nUse /inventory.",
-            reply_markup=main_menu_kb(user)
-        )
+        heal_image = resolve_heal_image_path()
+        no_balls_text = f"❌ You have no Suiballs.\nYou get {DAILY_SUIBALLS} per day (cap {SUIBALL_CAP}).\nUse /inventory."
+        if heal_image:
+            with open(heal_image, "rb") as photo:
+                await update.message.reply_photo(photo=photo, caption=no_balls_text, reply_markup=main_menu_kb(user))
+        else:
+            await update.message.reply_text(no_balls_text, reply_markup=main_menu_kb(user))
         return
     p["suiballs"] = balls - 1
     heal_to_full(user)
@@ -2401,11 +2409,22 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         mx = get_stats(champ_key, lv)["hp"]
         cur = get_or_init_current_hp(user_id)
         if cur >= mx:
-            await edit_menu_message(query, "✅ Your champ is already at full HP.", main_menu_kb(user_id))
+            heal_image = resolve_heal_image_path()
+            if heal_image and query.message:
+                with open(heal_image, "rb") as photo:
+                    await query.message.reply_photo(photo=photo, caption="✅ Your champ is already at full HP.", reply_markup=main_menu_kb(user_id))
+            else:
+                await edit_menu_message(query, "✅ Your champ is already at full HP.", main_menu_kb(user_id))
             return
         balls = int(p.get("suiballs", 0))
         if balls <= 0:
-            await edit_menu_message(query, f"❌ You have no Suiballs.\nYou get {DAILY_SUIBALLS} per day (cap {SUIBALL_CAP}).\nUse /inventory.", main_menu_kb(user_id))
+            heal_image = resolve_heal_image_path()
+            no_balls_text = f"❌ You have no Suiballs.\nYou get {DAILY_SUIBALLS} per day (cap {SUIBALL_CAP}).\nUse /inventory."
+            if heal_image and query.message:
+                with open(heal_image, "rb") as photo:
+                    await query.message.reply_photo(photo=photo, caption=no_balls_text, reply_markup=main_menu_kb(user_id))
+            else:
+                await edit_menu_message(query, no_balls_text, main_menu_kb(user_id))
             return
         p["suiballs"] = balls - 1
         heal_to_full(user_id)
