@@ -1129,10 +1129,8 @@ async def _battle_reposition_message(bot, chat_id: int, state: Dict[str, Any], t
             state["last_rendered_text"] = text
             state["last_reply_markup"] = reply_markup
             sent = True
-            try:
-                await bot.delete_message(chat_id=chat_id, message_id=old_message_id)
-            except Exception:
-                pass
+            # Fire-and-forget delete — don't block on it
+            asyncio.ensure_future(bot.delete_message(chat_id=chat_id, message_id=old_message_id))
             break
         except RetryAfter as e:
             await asyncio.sleep(float(getattr(e, "retry_after", 1.5)))
