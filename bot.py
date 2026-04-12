@@ -210,6 +210,14 @@ def resolve_menu_image_path() -> Optional[str]:
     return None
 
 
+
+def resolve_heal_image_path() -> Optional[str]:
+    for name in ("heal.jpg", "heal.JPG", "heal.png"):
+        candidate = os.path.join(BASE_DIR, name)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
 def is_allowed_chat_id(chat_id: Optional[int]) -> bool:
     return chat_id is not None and chat_id in ALLOWED_GROUP_IDS
 
@@ -1463,12 +1471,17 @@ async def heal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     heal_to_full(user)
     save_players(players)
     champ = champ_from_key(champ_key)
-    await update.message.reply_text(
+    heal_text = (
         f"🧿 Used 1 Suiball on {champ_full_name_for_player(user, champ_key)}!\n"
         f"❤️ HP restored: {mx}/{mx}\n"
-        f"Remaining Suiballs: {p['suiballs']}",
-        reply_markup=main_menu_kb(user)
+        f"Remaining Suiballs: {p['suiballs']}"
     )
+    heal_image = resolve_heal_image_path()
+    if heal_image:
+        with open(heal_image, "rb") as photo:
+            await update.message.reply_photo(photo=photo, caption=heal_text, reply_markup=main_menu_kb(user))
+    else:
+        await update.message.reply_text(heal_text, reply_markup=main_menu_kb(user))
 
 async def cutforsuimon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_allowed_chat(update, context):
@@ -2399,13 +2412,17 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         p["suiballs"] = balls - 1
         heal_to_full(user_id)
         save_players(players)
-        await edit_menu_message(
-            query,
+        heal_text = (
             f"🧿 Used 1 Suiball on <b>{html.escape(champ_full_name_for_player(user_id, champ_key))}</b>!\n"
             f"❤️ <b>HP restored:</b> {mx}/{mx}\n"
-            f"🎒 <b>Remaining Suiballs:</b> {p['suiballs']}",
-            main_menu_kb(user_id)
+            f"🎒 <b>Remaining Suiballs:</b> {p['suiballs']}"
         )
+        heal_image = resolve_heal_image_path()
+        if heal_image and query.message:
+            with open(heal_image, "rb") as photo:
+                await query.message.reply_photo(photo=photo, caption=heal_text, reply_markup=main_menu_kb(user_id), parse_mode="HTML")
+        else:
+            await edit_menu_message(query, heal_text, main_menu_kb(user_id))
         return
 
     if action == "namechamp":
