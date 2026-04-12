@@ -484,14 +484,8 @@ def battle_hud(p1_label: str, hp1: int, max1: int, p2_label: str, hp2: int, max2
 
 def xp_needed(level: int) -> int:
     level = max(1, min(int(level), MAX_LEVEL))
-    base = int(60 + (level - 1) * 18 + (level ** 2) * 3)
-    if level >= 9:
-        return int(base * 5.5)
-    if level >= 8:
-        return int(base * 3.5)
-    if level >= 7:
-        return int(base * 1.4)
-    return int(base * 0.6)
+    _xp_table = {1: 450, 2: 720, 3: 1125, 4: 1710, 5: 2520, 6: 3600, 7: 5085, 8: 7110, 9: 9900}
+    return _xp_table.get(level, 9900)
 
 def champ_key_from_input(arg: str) -> Optional[str]:
     if not arg:
