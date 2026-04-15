@@ -114,7 +114,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
                 "snaps its vine like a dominatrix on a coke binge!",
                 "lashes harder than a dealer who wasn't paid on time!",
             ]},
-            {"name": "Needle Rain", "kind": "damage_poison", "power": 46, "acc": 0.92, "poison_chance": 0.60, "poison_turns": (3, 4), "crit_bonus": 0.08, "text": [
+            {"name": "Needle Rain", "kind": "damage_poison", "power": 36, "acc": 0.92, "poison_chance": 0.40, "poison_turns": (2, 3), "crit_bonus": 0.08, "text": [
                 "opens the vial, smiles, and lets it rain — each drop a promise you'll regret!",
                 "launches a volley of needles — not pharmacy grade, not even close!",
                 "rains down like a bad batch hitting three people at a party — fast, quiet, and ugly!",
@@ -736,10 +736,20 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
             out.append(f"{STATUS_EMOJI['sleep']} {d_name} is already sleeping! Move wasted.")
             attacker["last_used_sleep"] = False
             return out
+        # Cooldown: Sleep Spore can only be used once every 3 turns
+        sleep_cooldown_remaining = attacker.get("sleep_spore_cooldown", 0)
+        if sleep_cooldown_remaining > 0:
+            attacker["sleep_spore_cooldown"] = sleep_cooldown_remaining - 1
+            out.append(("html",
+                f"🌿 {a_name} reaches for the stash — but the bag's empty! "
+                f"Sleep Spore needs {sleep_cooldown_remaining} more turn{'s' if sleep_cooldown_remaining != 1 else ''} to recharge. 💨"
+            ))
+            return out
         if attacker.get("last_used_sleep", False):
             # used sleep spore twice in a row — backfires
             attacker["sleep_turns"] = 1
             attacker["last_used_sleep"] = False
+            attacker["sleep_spore_cooldown"] = 0
             out.append(("html",
                 f"🌿 {a_name} reaches into the bag one too many times... takes a massive hit of "
                 f"<b>Cannabis indica</b> and zones out completely. 💨\n"
@@ -751,6 +761,7 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
         defender["sleep_turns"] = sleep_t
         defender["has_slept"] = True
         attacker["last_used_sleep"] = True
+        attacker["sleep_spore_cooldown"] = 3  # can't use again for 3 turns
         cannabis_texts = [
             f"🌿 {a_name} hurls a fistful of <b>Cannabis indica</b>! {d_name} is absolutely baked and refuses to fight! 💨",
             f"🌿 {a_name} deploys the <b>Cannabis indica</b>! {d_name} takes a massive hit and passes out! 💨",
@@ -799,6 +810,8 @@ def do_move(attacker: Dict[str, Any], defender: Dict[str, Any], a_key: str, d_ke
 
     # attacker used a non-sleep move — reset consecutive sleep tracking
     attacker["last_used_sleep"] = False
+    if attacker.get("sleep_spore_cooldown", 0) > 0:
+        attacker["sleep_spore_cooldown"] -= 1
 
     if kind == "status_burn":
         if defender.get("burn_turns", 0) > 0:
