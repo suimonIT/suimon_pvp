@@ -138,7 +138,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
         "type": "fire",
         "base": {"hp": 150, "atk": 22, "def": 10, "spd": 12},
         "moves": [
-            {"name": "Wet Dream", "kind": "status_wet_dream", "power": 0, "acc": 0.90, "wet_dream_turns": (2, 3), "text": [
+            {"name": "Wet Dream", "kind": "status_wet_dream", "power": 0, "acc": 0.90, "wet_dream_turns": (3, 4), "text": [
                 "slips something into their drink — they don't notice until they pisses themselves mid-fight!",
                 "whispers something in their ear — whatever it was, they pisses themselves instantly!",
                 "exhales cult smoke directly into their mouth — they pisses themselves before it even kicks in!",
@@ -155,7 +155,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
                 "carves deep — leaves marks the cult will be proud of!",
                 "rips through like a bad breakup — slow, painful, and very personal!",
             ]},
-            {"name": "Will-O-Wisp", "kind": "status_burn", "power": 0, "acc": 0.85, "burn_turns": (2, 3), "text": [
+            {"name": "Will-O-Wisp", "kind": "status_burn", "power": 0, "acc": 0.90, "burn_turns": (2, 3), "text": [
                 "pulls out a crackpipe and blows burning fumes directly into the opponent's face!",
                 "hotboxes the arena with something far worse than tobacco — Will-O-Wisp!",
                 "lights up a meth pipe and exhales pure fire — your lungs are not ready!",
