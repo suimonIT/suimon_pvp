@@ -60,7 +60,7 @@ MAX_MESSAGE_CHARS = 3800  # keep under Telegram 4096 edit limit
 DAILY_SUIBALLS = 2
 DAILY_SUIBALLS_TOURNAMENT = 10
 SUIBALL_CAP = 5
-SUIBALL_CAP_TOURNAMENT = 200
+SUIBALL_CAP_TOURNAMENT = 100
 MAX_LEVEL = 10
 TZ = timezone.utc
 
@@ -1945,17 +1945,17 @@ async def tournamenton(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Give everyone 200 suiballs
     named = []
     for uid, p in players.items():
-        p["suiballs"] = 200
+        p["suiballs"] = 100
         if p.get("champ") in CHAMPS and p.get("champ_nickname"):
             named.append(display_name(uid))
     save_players(players)
 
     tournament_text = (
         "🏆 <b>TOURNAMENT HAS STARTED!</b> 🏆\n\n"
-        "Every Trainer has received <b>200 Suiballs</b>!\n\n"
-        "Play <b>200 games</b> and finish in the <b>TOP 3</b> to win the Prize.\n\n"
+        "Every Trainer has received <b>100 Suiballs</b>!\n\n"
+        "Play <b>100 games</b> and finish in the <b>TOP 3</b> to win the Prize.\n\n"
         "Remember — <b>#1</b> receives the coveted\n"
-        "🌊 <b>Cascade Badge</b> 🌊\n\n"
+        "🔥 <b>Volcano Badge</b> 🔥\n\n"
         "Daily Suiballs are now <b>+10</b> during the Tournament.\n\n"
         "May the best Trainer win. Good luck! ⚔️"
     )
@@ -2017,10 +2017,10 @@ async def tournamentoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
     congrats_text = (
         "🏁 <b>TOURNAMENT OVER!</b>\n\n"
         + "\n".join(lb_lines) +
-        f"\n\n🌊🌊🌊\n"
+        f"\n\n🔥🔥🔥\n"
         f"Congratulations <b>{html.escape(winner_name)}</b>!\n"
-        f"You have won the <b>Cascade Badge</b>! 🌊\n"
-        f"🌊🌊🌊"
+        f"You have won the <b>Volcano Badge</b>! 🔥\n"
+        f"🔥🔥🔥"
     )
     congrats_image_candidates = ("congrats.jpg", "congrats.JPG", "congrats.png")
     congrats_image = None
