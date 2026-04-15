@@ -136,7 +136,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
     "suimander": {
         "display": "Suimander",
         "type": "fire",
-        "base": {"hp": 150, "atk": 22, "def": 10, "spd": 12},
+        "base": {"hp": 153, "atk": 23, "def": 10, "spd": 12},
         "moves": [
             {"name": "Wet Dream", "kind": "status_wet_dream", "power": 0, "acc": 0.90, "wet_dream_turns": (3, 4), "text": [
                 "slips something into their drink — they don't notice until they pisses themselves mid-fight!",
@@ -167,7 +167,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
     "suiqrtle": {
         "display": "Suiqrtle",
         "type": "water",
-        "base": {"hp": 160, "atk": 21, "def": 12, "spd": 8},
+        "base": {"hp": 155, "atk": 21, "def": 12, "spd": 8},
         "moves": [
             {"name": "Water Pulse", "kind": "status_confuse", "power": 0, "acc": 0.80, "confuse_turns": (1, 2), "confuse_rare_chance": 0.30, "text": [
                 "floods the arena with PCP-laced water — someone's going to hurt themselves!",
