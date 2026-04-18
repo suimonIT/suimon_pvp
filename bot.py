@@ -107,7 +107,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
     "basaurimon": {
         "display": "Basaurimon",
         "type": "nature",
-        "base": {"hp": 157, "atk": 24, "def": 11, "spd": 9},
+        "base": {"hp": 160, "atk": 24, "def": 11, "spd": 9},
         "moves": [
             {"name": "Vine Whip", "kind": "damage", "power": 48, "acc": 0.95, "text": [
                 "whips out something long and flexible — no lube included!",
