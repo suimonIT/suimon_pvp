@@ -136,7 +136,7 @@ CHAMPS: Dict[str, Dict[str, Any]] = {
     "suimander": {
         "display": "Suimander",
         "type": "fire",
-        "base": {"hp": 154, "atk": 24, "def": 10, "spd": 12},
+        "base": {"hp": 154, "atk": 23, "def": 11, "spd": 12},
         "moves": [
             {"name": "Wet Dream", "kind": "status_wet_dream", "power": 0, "acc": 0.90, "wet_dream_turns": (3, 4), "text": [
                 "slips something into their drink — they don't notice until they pisses themselves mid-fight!",
