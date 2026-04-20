@@ -2839,8 +2839,19 @@ def main():
     app.add_handler(CallbackQueryHandler(challenge_callback, pattern=r"^suimon_(accept|decline)\|"))
     app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff|heal|noop)\|"))
 
-    # AFK auto-move: check every 30 seconds
-    app.job_queue.run_repeating(_afk_watcher, interval=30, first=30)
+    # AFK auto-move: background asyncio loop, no JobQueue needed
+    async def _afk_loop(application):
+        while True:
+            await asyncio.sleep(30)
+            try:
+                await _afk_watcher(application)
+            except Exception as e:
+                print(f"[AFK loop error] {e}")
+
+    async def post_init(application):
+        asyncio.create_task(_afk_loop(application))
+
+    app.post_init = post_init
 
     print("Suimon Arena bot running...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
