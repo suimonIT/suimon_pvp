@@ -465,7 +465,7 @@ def get_badges_display(user_id: str) -> str:
     badges = players.get(user_id, {}).get("badges", [])
     if not badges:
         return ""
-    badge_map = {"cascade": "🔥", "volcano": "🔥"}
+    badge_map = {"cascade": "🌊", "volcano": "🔥"}
     return " ".join(badge_map.get(b, "🏅") for b in badges)
 
 
