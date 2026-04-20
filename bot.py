@@ -47,13 +47,14 @@ BATTLES: Dict[int, Dict[str, Any]] = {}
 # -------------------------
 INTRO_DELAY = 0.8
 REPOSITION_COOLDOWN = 3.5
+AFK_TIMEOUT = 180  # seconds before auto-move kicks in (3 minutes)
 COUNTDOWN_STEP_DELAY = 0.55
 ACTION_DELAY = 0.70
 HUD_DELAY = 0.45
 END_DELAY = 0.8
 
 # Keep Telegram message length manageable
-MAX_LINES_SHOWN = 70
+MAX_LINES_SHOWN = 25
 MAX_MESSAGE_CHARS = 3800  # keep under Telegram 4096 edit limit
 
 # Daily items
@@ -464,7 +465,7 @@ def get_badges_display(user_id: str) -> str:
     badges = players.get(user_id, {}).get("badges", [])
     if not badges:
         return ""
-    badge_map = {"cascade": "🌊"}
+    badge_map = {"cascade": "🔥", "volcano": "🔥"}
     return " ".join(badge_map.get(b, "🏅") for b in badges)
 
 
@@ -1919,6 +1920,7 @@ async def _start_battle(chat_id: int, user: str, opponent: str, context: Context
         "actions": 0,
         "max_rounds": 24,
         "suiballs_used": {},  # tracks per-player suiball usage this battle
+        "last_move_ts": time.monotonic(),  # AFK timer
     }
     BATTLES[chat_id] = state
 
@@ -2011,13 +2013,13 @@ async def tournamentoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🏁 Tournament ended. No players found.")
         return
 
-    # Award Cascade Badge to #1
+    # Award Volcano Badge to #1
     winner_id = top[0][0]
     winner_name = top[0][1]
     if "badges" not in players[winner_id]:
         players[winner_id]["badges"] = []
-    if "cascade" not in players[winner_id]["badges"]:
-        players[winner_id]["badges"].append("cascade")
+    if "volcano" not in players[winner_id]["badges"]:
+        players[winner_id]["badges"].append("volcano")
     save_players(players)
 
     # Build leaderboard text
@@ -2035,18 +2037,7 @@ async def tournamentoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"You have won the <b>Volcano Badge</b>! 🔥\n"
         f"🔥🔥🔥"
     )
-    congrats_image_candidates = ("congrats.jpg", "congrats.JPG", "congrats.png")
-    congrats_image = None
-    for name in congrats_image_candidates:
-        candidate = os.path.join(BASE_DIR, name)
-        if os.path.isfile(candidate):
-            congrats_image = candidate
-            break
-    if congrats_image:
-        with open(congrats_image, "rb") as photo:
-            await update.message.reply_photo(photo=photo, caption=congrats_text, parse_mode="HTML")
-    else:
-        await update.message.reply_text(congrats_text, parse_mode="HTML")
+    await update.message.reply_text(congrats_text, parse_mode="HTML")
 
 
 async def change_champ(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2633,6 +2624,7 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     state["resolving"] = True
     state["resolving_since"] = time.monotonic()
+    state["last_move_ts"] = time.monotonic()  # reset AFK timer
 
     # Resolve a turn action
     attacker = _battle_turn_champ_state(state)
@@ -2716,6 +2708,100 @@ async def battle_move_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             state["resolving"] = False
 
 # =========================
+# AFK AUTO-MOVE
+# =========================
+
+async def _auto_move(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE):
+    """Pick a random move automatically for the AFK player."""
+    turn_user = _battle_turn_user(state)
+    a_key = _battle_turn_champ_key(state)
+    moves = champ_from_key(a_key)["moves"]
+    idx = random.randint(0, len(moves) - 1)
+
+    state["resolving"] = True
+    state["resolving_since"] = time.monotonic()
+    state["last_move_ts"] = time.monotonic()
+
+    attacker = _battle_turn_champ_state(state)
+    defender = _battle_def_champ_state(state)
+    a_key = _battle_turn_champ_key(state)
+    d_key = _battle_def_champ_key(state)
+    a_lvl = _battle_turn_level(state)
+    a_name = champ_display_for_player(turn_user, a_key)
+    defender_user = state["opponent"] if turn_user == state["user"] else state["user"]
+    d_lvl = state["lv2"] if turn_user == state["user"] else state["lv1"]
+
+    try:
+        await _battle_push(chat_id, state, context, f"⏰ {_battle_turn_name(state)} is AFK — auto-move triggered!", delay=0.4, reply_markup=None)
+
+        for line in status_tick_lines(attacker, a_name):
+            await _battle_push(chat_id, state, context, line, delay=0.45, reply_markup=None)
+        if attacker["hp"] <= 0:
+            winner = state["opponent"] if turn_user == state["user"] else state["user"]
+            await _end_battle(chat_id, state, context, winner=winner, loser=turn_user)
+            return
+
+        ok, sleep_lines = can_act(attacker)
+        if not ok:
+            raw = sleep_lines[0]
+            if isinstance(raw, tuple) and raw[0] == "html_named":
+                line_out = ("html", raw[1].format(champ_name=html.escape(a_name)))
+            elif isinstance(raw, tuple) and raw[0] == "html":
+                line_out = raw
+            else:
+                line_out = ("html", f"{STATUS_EMOJI['sleep']} <b>{html.escape(a_name)}</b> {raw}")
+            await _battle_push(chat_id, state, context, line_out, delay=0.55, reply_markup=None)
+        else:
+            move = moves[idx]
+            before_hp = int(defender["hp"])
+            for line in do_move(attacker, defender, a_key, d_key, a_lvl, move, attacker_name=a_name, defender_name=champ_display_for_player(defender_user, d_key), defender_level=d_lvl):
+                await _battle_push(chat_id, state, context, line, delay=0.55, reply_markup=None)
+
+        attacker["hp"] = max(0, int(attacker["hp"]))
+        defender["hp"] = max(0, int(defender["hp"]))
+        await _battle_push_hud(chat_id, state, context, delay=0.25, reply_markup=None)
+
+        if state["champ1"]["hp"] <= 0 or state["champ2"]["hp"] <= 0:
+            winner = state["user"] if state["champ1"]["hp"] > 0 else state["opponent"]
+            loser = state["opponent"] if winner == state["user"] else state["user"]
+            await _end_battle(chat_id, state, context, winner=winner, loser=loser)
+            return
+
+        state["actions"] += 1
+        if state["round"] >= state["max_rounds"]:
+            if state["champ1"]["hp"] == state["champ2"]["hp"]:
+                winner = state["user"] if random.random() < 0.5 else state["opponent"]
+            else:
+                winner = state["user"] if state["champ1"]["hp"] > state["champ2"]["hp"] else state["opponent"]
+            loser = state["opponent"] if winner == state["user"] else state["user"]
+            await _battle_push(chat_id, state, context, "⏱️ Time! Battle ends by decision.", delay=0.35, reply_markup=None)
+            await _end_battle(chat_id, state, context, winner=winner, loser=loser)
+            return
+
+        _battle_next_turn(state)
+        await _battle_prompt_turn(chat_id, state, context)
+    finally:
+        latest = BATTLES.get(chat_id)
+        if latest is state:
+            state["resolving"] = False
+
+
+async def _afk_watcher(context: ContextTypes.DEFAULT_TYPE):
+    """Periodic job: fires auto-move for any battle whose active player is AFK."""
+    now = time.monotonic()
+    for chat_id, state in list(BATTLES.items()):
+        if state.get("resolving"):
+            continue
+        last = state.get("last_move_ts", now)
+        if now - last >= AFK_TIMEOUT:
+            state["last_move_ts"] = now  # reset to prevent re-triggering immediately
+            try:
+                await _auto_move(chat_id, state, context)
+            except Exception as e:
+                print(f"[AFK watcher] Error in chat {chat_id}: {e}")
+
+
+# =========================
 # MAIN
 # =========================
 
@@ -2752,6 +2838,9 @@ def main():
     app.add_handler(CallbackQueryHandler(choose_callback, pattern=r"^choose\|"))
     app.add_handler(CallbackQueryHandler(challenge_callback, pattern=r"^suimon_(accept|decline)\|"))
     app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff|heal|noop)\|"))
+
+    # AFK auto-move: check every 30 seconds
+    app.job_queue.run_repeating(_afk_watcher, interval=30, first=30)
 
     print("Suimon Arena bot running...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
