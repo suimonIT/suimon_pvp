@@ -1811,8 +1811,8 @@ async def _battle_prompt_turn(chat_id: int, state: Dict[str, Any], context: Cont
 
 async def _end_battle(chat_id: int, state: Dict[str, Any], context: ContextTypes.DEFAULT_TYPE, winner: str, loser: str):
     # Persist HP + XP
-    
-    set_current_hp(state["user"], int(max(state["champ1"]["hp"], 0)))
+    set_current_hp(state["user"],     int(max(state["champ1"]["hp"], 0)))
+    set_current_hp(state["opponent"], int(max(state["champ2"]["hp"], 0)))
     xp_w, xp_l = award_battle_xp(winner, loser)
     save_players(players)
 
