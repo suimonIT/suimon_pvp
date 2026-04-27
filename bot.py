@@ -465,7 +465,7 @@ def get_badges_display(user_id: str) -> str:
     badges = players.get(user_id, {}).get("badges", [])
     if not badges:
         return ""
-    badge_map = {"cascade": "🌊", "volcano": "🔥"}
+    badge_map = {"cascade": "🌊", "volcano": "🔥", "earth": "🌍"}
     return " ".join(badge_map.get(b, "🏅") for b in badges)
 
 
@@ -1970,7 +1970,7 @@ async def tournamenton(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Every Trainer has received <b>100 Suiballs</b>!\n\n"
         "Play <b>100 games</b> and finish in the <b>TOP 3</b> to win the Prize.\n\n"
         "Remember — <b>#1</b> receives the coveted\n"
-        "🔥 <b>Volcano Badge</b> 🔥\n\n"
+        "🌍 <b>Earth Badge</b> 🌍\n\n"
         "Daily Suiballs are now <b>+10</b> during the Tournament.\n\n"
         "May the best Trainer win. Good luck! ⚔️"
     )
@@ -2013,13 +2013,13 @@ async def tournamentoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🏁 Tournament ended. No players found.")
         return
 
-    # Award Volcano Badge to #1
+    # Award Earth Badge to #1
     winner_id = top[0][0]
     winner_name = top[0][1]
     if "badges" not in players[winner_id]:
         players[winner_id]["badges"] = []
-    if "volcano" not in players[winner_id]["badges"]:
-        players[winner_id]["badges"].append("volcano")
+    if "earth" not in players[winner_id]["badges"]:
+        players[winner_id]["badges"].append("earth")
     save_players(players)
 
     # Build leaderboard text
@@ -2032,10 +2032,10 @@ async def tournamentoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
     congrats_text = (
         "🏁 <b>TOURNAMENT OVER!</b>\n\n"
         + "\n".join(lb_lines) +
-        f"\n\n🔥🔥🔥\n"
+        f"\n\n🌍🌍🌍\n"
         f"Congratulations <b>{html.escape(winner_name)}</b>!\n"
-        f"You have won the <b>Volcano Badge</b>! 🔥\n"
-        f"🔥🔥🔥"
+        f"You have won the <b>Earth Badge</b>! 🌍\n"
+        f"🌍🌍🌍"
     )
     await update.message.reply_text(congrats_text, parse_mode="HTML")
 
