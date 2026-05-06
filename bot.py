@@ -720,8 +720,7 @@ async def _afk_watcher(context):
             state["last_move_ts"]=now
             try: await _auto_move(cid,state,context)
             except Exception as e: print(f"[AFK] Error {e}")
-
-# =========================
+            # =========================
 # MENÜS
 # =========================
 def main_menu_kb(uid=None):
@@ -844,7 +843,6 @@ async def profile(update,context):
     txt=f"🪪 <b>Trainer Card</b>\n\n👤 {display_name(uid)}\n🏅 Record: {w}W / {lo}L\n"
     if badges: txt+=f"🎖️ Badges: {badges}\n"
     txt+=f"\n{TYPE_EMOJI[cd['type']]} {suimon_full_name(s)} (Lv.{lv}){fainted}\n❤️ HP: {chp}/{st['hp']}\n✨ XP: {s.get('xp',0)}/{xp_needed(lv) if lv<MAX_LEVEL else 0}\n📈 Stats: ATK {st['atk']} | DEF {st['def']} | SPD {st['spd']}\n\n🎒 Suiballs: {balls} | 🥅 Net Balls: {nballs}\n📦 Team: {len(get_owned_suimon_list(uid))} Suimon"
-    # GANZES TEAM ANZEIGEN
     tl=[]
     for i,su in enumerate(get_owned_suimon_list(uid)):
         act="⭐" if i==get_active_suimon_index(uid) else "  "
@@ -857,7 +855,7 @@ async def leaderboard(update,context):
     if not await ensure_allowed_chat(update,context): return
     uid=await _bootstrap_user(update)
     if not update.message: return
-    await update.message.reply_text(build_rankings_text(uid,10),reply_markup=main_menu_kb(uid),parse_mode="HTML",disable_web_page_preview=True)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=build_rankings_text(uid,10), reply_markup=main_menu_kb(uid), parse_mode="HTML", disable_web_page_preview=True)
 
 async def inventory(update,context):
     if not await ensure_allowed_chat(update,context): return
@@ -958,19 +956,61 @@ async def explore_world_callback(update, context):
     if p.get(ck) == td():
         await edit_menu_message(q, f"⏳ Already explored {w['name']} today.", main_menu_kb(uid))
         return
+
+    # Schrittweise Erkundung anzeigen
+    bot = context.bot
+    chat_id = q.message.chat.id
+    nm = html.escape(display_name(uid))
+
+    flavor_texts = {
+        "sedative_abyss": [
+            f"{nm} dives into the dark ocean trenches...",
+            "The water feels heavy, almost tranquilizing...",
+            "Searching through the abyss..."
+        ],
+        "crackspit_peaks": [
+            f"{nm} climbs the volcanic mountains...",
+            "The lava flows like a crack pipe, fumes everywhere...",
+            "Looking around the peaks..."
+        ],
+        "hash_highlands": [
+            f"{nm} wanders through the rolling hills...",
+            "Ancient cannabis fields stretch endlessly...",
+            "Sniffing the air for something interesting..."
+        ]
+    }
+
+    texts = flavor_texts.get(wk, [f"{nm} explores...", "Searching...", "..."])
+    status_msg = await bot.send_message(chat_id, texts[0])
+    for txt in texts[1:]:
+        await asyncio.sleep(1.2)
+        try: await status_msg.edit_text(txt)
+        except: pass
+
+    await asyncio.sleep(0.8)
     if random.random() < w["encounter_chance"]:
         ws = random.choice(w["suimon"])
         wd = CHAMPS[ws]
-        txt = f"{w['emoji']} Exploring <b>{w['name']}</b>...\n\n🌿 A wild <b>{wd['display']}</b> appeared!\nType: {TYPE_EMOJI[wd['type']]}\n\nCatch it? (Costs 1 Net Ball, 50%)"
+        try: await status_msg.edit_text(f"{w['emoji']} A wild <b>{wd['display']}</b> appeared!\nType: {TYPE_EMOJI[wd['type']]}\n\nCatch it? (1 Net Ball, 50%)", parse_mode="HTML")
+        except: pass
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🎯 Catch", callback_data=f"catch|{wk}|{ws}"),
              InlineKeyboardButton("🏃 Flee", callback_data=f"explore_flee|{wk}")]
         ])
-        await edit_menu_message(q, txt, kb)
+        try: await status_msg.edit_reply_markup(reply_markup=kb)
+        except: pass
     else:
         p[ck] = td()
         save_players(players)
-        await edit_menu_message(q, f"{w['emoji']} You explore <b>{w['name']}</b>...\n\nNo encounter. Try again tomorrow!", main_menu_kb(uid))
+        no_texts = [
+            "Didn't find anything... too stoned!",
+            "Nothing here but wasted time.",
+            "Checked everywhere, but it's empty."
+        ]
+        try: await status_msg.edit_text(f"{w['emoji']} {random.choice(no_texts)}", parse_mode="HTML")
+        except: pass
+        try: await status_msg.edit_reply_markup(reply_markup=main_menu_kb(uid))
+        except: pass
 
 async def catch_callback(update,context):
     q=update.callback_query
@@ -991,10 +1031,10 @@ async def catch_callback(update,context):
         p["active_suimon"]=len(p["owned_suimon"])-1
         save_players(players)
         start_nickname_prompt(uid)
-        await edit_menu_message(q, f"🎉 <b>{CHAMPS[ws]['display']}</b> caught! Added to your team.\n\nUse <code>/name YourName</code> to give it a nickname.", naming_prompt_kb())
+        await q.edit_message_text(f"🎉 <b>{CHAMPS[ws]['display']}</b> caught! Added to your team.\n\nUse <code>/name YourName</code> to give it a nickname.", parse_mode="HTML", reply_markup=naming_prompt_kb())
     else:
         save_players(players)
-        await edit_menu_message(q, f"💨 The wild <b>{CHAMPS[ws]['display']}</b> escaped! Better luck next time.", main_menu_kb(uid))
+        await q.edit_message_text(f"💨 The wild <b>{CHAMPS[ws]['display']}</b> escaped! Better luck next time.", parse_mode="HTML", reply_markup=main_menu_kb(uid))
 
 async def explore_flee_callback(update,context):
     q=update.callback_query
@@ -1004,7 +1044,7 @@ async def explore_flee_callback(update,context):
     wk=q.data.split("|")[1]
     players[uid][f"explore_{wk}_date"]=td()
     save_players(players)
-    await edit_menu_message(q, "🏃 You fled. World complete for today.", main_menu_kb(uid))
+    await q.edit_message_text("🏃 You fled. World complete for today.", reply_markup=main_menu_kb(uid))
 
 # ---------- PVP ----------
 async def fight(update,context):
@@ -1213,7 +1253,6 @@ async def menu_callback(update,context):
         txt=f"🪪 <b>Trainer Card</b>\n\n👤 {display_name(uid)}\n🏅 Record: {w}W / {lo}L\n"
         if badges: txt+=f"🎖️ Badges: {badges}\n"
         txt+=f"\n{TYPE_EMOJI[cd['type']]} {suimon_full_name(s)} (Lv.{lv}){fainted}\n❤️ HP: {chp}/{st['hp']}\n✨ XP: {s.get('xp',0)}/{xp_needed(lv) if lv<MAX_LEVEL else 0}\n📈 Stats: ATK {st['atk']} | DEF {st['def']} | SPD {st['spd']}\n\n🎒 Suiballs: {balls} | 🥅 Net Balls: {nballs}\n📦 Team: {len(get_owned_suimon_list(uid))} Suimon"
-        # GANZES TEAM ANZEIGEN
         tl=[]
         for i,su in enumerate(get_owned_suimon_list(uid)):
             act="⭐" if i==get_active_suimon_index(uid) else "  "
@@ -1223,7 +1262,7 @@ async def menu_callback(update,context):
         await edit_menu_message(q,txt,main_menu_kb(uid)); return
     if action=="leaderboard":
         await q.answer()
-        await q.message.reply_text(build_rankings_text(uid,10), reply_markup=main_menu_kb(uid), parse_mode="HTML", disable_web_page_preview=True)
+        await context.bot.send_message(chat_id=q.message.chat.id, text=build_rankings_text(uid,10), reply_markup=main_menu_kb(uid), parse_mode="HTML", disable_web_page_preview=True)
         return
     if action=="inventory":
         p=players[uid]; balls=int(p.get("suiballs",0)); net=int(p.get("net_balls",0))
