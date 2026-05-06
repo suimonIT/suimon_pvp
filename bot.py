@@ -894,24 +894,21 @@ async def heal_select_callback(update, context):
     idx = int(parts[1])
     its = get_owned_suimon_list(uid)
     if idx < 0 or idx >= len(its):
-        await q.edit_message_text("Invalid selection.", reply_markup=main_menu_kb(uid))
+        await edit_menu_message(q, "Invalid selection.", main_menu_kb(uid))
         return
     s = its[idx]
     mx = get_stats(s["species"], int(s.get("level", 1)))["hp"]
     if s.get("hp", 0) >= mx:
-        await q.edit_message_text("Already full HP.", reply_markup=main_menu_kb(uid))
+        await edit_menu_message(q, "Already full HP.", main_menu_kb(uid))
         return
     balls = int(players[uid].get("suiballs", 0))
     if balls <= 0:
-        await q.edit_message_text("❌ No Suiballs.", reply_markup=main_menu_kb(uid))
+        await edit_menu_message(q, "❌ No Suiballs.", main_menu_kb(uid))
         return
     players[uid]["suiballs"] = balls - 1
     heal_suimon_by_index(uid, idx)
     save_players(players)
-    await q.edit_message_text(
-        f"🧿 <b>{suimon_full_name(s)}</b> healed to full HP ({mx}/{mx})!\nRemaining Suiballs: {players[uid]['suiballs']}",
-        reply_markup=main_menu_kb(uid), parse_mode="HTML"
-    )
+    await edit_menu_message(q, f"🧿 <b>{suimon_full_name(s)}</b> healed to full HP ({mx}/{mx})!\nRemaining Suiballs: {players[uid]['suiballs']}", main_menu_kb(uid))
 
 async def cutforsuimon(update,context):
     if not await ensure_allowed_chat(update,context): return
@@ -947,12 +944,12 @@ async def explore_world_callback(update, context):
     wk = parts[1]
     w = WORLDS.get(wk)
     if not w:
-        await q.edit_message_text("World not found.", reply_markup=main_menu_kb(uid))
+        await edit_menu_message(q, "World not found.", main_menu_kb(uid))
         return
     p = players[uid]
     ck = f"explore_{wk}_date"
     if p.get(ck) == td():
-        await q.edit_message_text(f"⏳ Already explored {w['name']} today.", reply_markup=main_menu_kb(uid))
+        await edit_menu_message(q, f"⏳ Already explored {w['name']} today.", main_menu_kb(uid))
         return
     if random.random() < w["encounter_chance"]:
         ws = random.choice(w["suimon"])
@@ -962,14 +959,11 @@ async def explore_world_callback(update, context):
             [InlineKeyboardButton("🎯 Catch", callback_data=f"catch|{wk}|{ws}"),
              InlineKeyboardButton("🏃 Flee", callback_data=f"explore_flee|{wk}")]
         ])
-        await q.edit_message_text(txt, reply_markup=kb, parse_mode="HTML")
+        await edit_menu_message(q, txt, kb)
     else:
         p[ck] = td()
         save_players(players)
-        await q.edit_message_text(
-            f"{w['emoji']} You explore <b>{w['name']}</b>...\n\nNo encounter. Try again tomorrow!",
-            reply_markup=main_menu_kb(uid), parse_mode="HTML"
-        )
+        await edit_menu_message(q, f"{w['emoji']} You explore <b>{w['name']}</b>...\n\nNo encounter. Try again tomorrow!", main_menu_kb(uid))
 
 async def catch_callback(update,context):
     q=update.callback_query
@@ -977,22 +971,33 @@ async def catch_callback(update,context):
     await q.answer()
     uid=str(q.from_user.id); p=players.setdefault(uid,{})
     _,wk,ws=q.data.split("|"); w=WORLDS.get(wk); ck=f"explore_{wk}_date"
-    if p.get(ck)==td(): await q.edit_message_text("Already completed today.",reply_markup=main_menu_kb(uid)); return
+    if p.get(ck)==td():
+        await edit_menu_message(q, "Already completed today.", main_menu_kb(uid))
+        return
     nb=int(p.get("net_balls",0))
-    if nb<=0: await q.edit_message_text("❌ No Net Balls!",reply_markup=main_menu_kb(uid)); return
+    if nb<=0:
+        await edit_menu_message(q, "❌ No Net Balls!", main_menu_kb(uid))
+        return
     p["net_balls"]=nb-1; p[ck]=td()
     if random.random()<0.5:
         p.setdefault("owned_suimon",[]).append({"species":ws,"nickname":None,"level":1,"xp":0,"hp":get_stats(ws,1)["hp"],"wins":0,"losses":0})
-        p["active_suimon"]=len(p["owned_suimon"])-1; save_players(players); start_nickname_prompt(uid)
-        await q.edit_message_text(f"🎉 <b>{CHAMPS[ws]['display']}</b> caught! Added to team.\n\nUse <code>/name</code> to nickname it.",naming_prompt_kb(),parse_mode="HTML")
-    else: save_players(players); await q.edit_message_text(f"💨 <b>{CHAMPS[ws]['display']}</b> escaped!",reply_markup=main_menu_kb(uid),parse_mode="HTML")
+        p["active_suimon"]=len(p["owned_suimon"])-1
+        save_players(players)
+        start_nickname_prompt(uid)
+        await edit_menu_message(q, f"🎉 <b>{CHAMPS[ws]['display']}</b> caught! Added to team.\n\nUse <code>/name</code> to nickname it.", naming_prompt_kb())
+    else:
+        save_players(players)
+        await edit_menu_message(q, f"💨 <b>{CHAMPS[ws]['display']}</b> escaped!", main_menu_kb(uid))
 
 async def explore_flee_callback(update,context):
     q=update.callback_query
     if not q: return
-    await q.answer(); uid=str(q.from_user.id); wk=q.data.split("|")[1]
-    players[uid][f"explore_{wk}_date"]=td(); save_players(players)
-    await q.edit_message_text("🏃 You fled. World complete for today.",reply_markup=main_menu_kb(uid))
+    await q.answer()
+    uid=str(q.from_user.id)
+    wk=q.data.split("|")[1]
+    players[uid][f"explore_{wk}_date"]=td()
+    save_players(players)
+    await edit_menu_message(q, "🏃 You fled. World complete for today.", main_menu_kb(uid))
 
 # ---------- PVP ----------
 async def fight(update,context):
@@ -1246,7 +1251,7 @@ async def choose_callback(update,context):
     await edit_menu_message(q,f"📝 Selected {c['display']}!\nUse /name YourName.",naming_prompt_kb())
 
 # =========================
-# MAIN (final!)
+# MAIN
 # =========================
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
