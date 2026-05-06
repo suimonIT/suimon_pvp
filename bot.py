@@ -1255,6 +1255,26 @@ async def choose_callback(update,context):
     start_nickname_prompt(uid); save_players(players)
     await edit_menu_message(q,f"📝 Selected {c['display']}!\nUse /name YourName.",naming_prompt_kb())
 
+    # DEBUG: Callback-Logging
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.getLogger("telegram.ext.CallbackQueryHandler").setLevel(logging.DEBUG)
+
+original_cqh = CallbackQueryHandler
+
+class DebugCQH(original_cqh):
+    async def handle_update(self, update, context, **kwargs):
+        if update.callback_query:
+            data = update.callback_query.data
+            match = self.pattern.match(data) if self.pattern else True
+            print(f"[CQH-DEBUG] data='{data}' | pattern='{self.pattern.pattern if self.pattern else 'None'}' | matches={bool(match)} | handler={self.callback.__name__}")
+        return await super().handle_update(update, context, **kwargs)
+
+# Monkey-patch
+import telegram.ext._callbackqueryhandler
+telegram.ext._callbackqueryhandler.CallbackQueryHandler = DebugCQH
+telegram.ext.CallbackQueryHandler = DebugCQH
+
 # =========================
 # MAIN
 # =========================
