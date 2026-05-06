@@ -889,27 +889,22 @@ async def heal_select_callback(update, context):
     players = load_players()
     ensure_player(uid, q.from_user.first_name or "", q.from_user.username)
     ensure_daily(uid)
-    
     parts = q.data.split("|")
     if len(parts) < 2: return
     idx = int(parts[1])
     its = get_owned_suimon_list(uid)
-    
     if idx < 0 or idx >= len(its):
         await q.edit_message_text("Invalid selection.", reply_markup=main_menu_kb(uid))
         return
-    
     s = its[idx]
     mx = get_stats(s["species"], int(s.get("level", 1)))["hp"]
     if s.get("hp", 0) >= mx:
         await q.edit_message_text("Already full HP.", reply_markup=main_menu_kb(uid))
         return
-    
     balls = int(players[uid].get("suiballs", 0))
     if balls <= 0:
         await q.edit_message_text("❌ No Suiballs.", reply_markup=main_menu_kb(uid))
         return
-    
     players[uid]["suiballs"] = balls - 1
     heal_suimon_by_index(uid, idx)
     save_players(players)
@@ -947,23 +942,18 @@ async def explore_world_callback(update, context):
     uid = str(q.from_user.id)
     ensure_player(uid, q.from_user.first_name or "", q.from_user.username)
     ensure_daily(uid)
-    
     parts = q.data.split("|")
     if len(parts) < 2: return
     wk = parts[1]
     w = WORLDS.get(wk)
-    
     if not w:
         await q.edit_message_text("World not found.", reply_markup=main_menu_kb(uid))
         return
-    
     p = players[uid]
     ck = f"explore_{wk}_date"
-    
     if p.get(ck) == td():
         await q.edit_message_text(f"⏳ Already explored {w['name']} today.", reply_markup=main_menu_kb(uid))
         return
-    
     if random.random() < w["encounter_chance"]:
         ws = random.choice(w["suimon"])
         wd = CHAMPS[ws]
@@ -1256,21 +1246,35 @@ async def choose_callback(update,context):
     await edit_menu_message(q,f"📝 Selected {c['display']}!\nUse /name YourName.",naming_prompt_kb())
 
 # =========================
-# MAIN
+# MAIN (final!)
 # =========================
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start",start)); app.add_handler(CommandHandler("menu",menu)); app.add_handler(CommandHandler("intro",intro))
-    app.add_handler(CommandHandler("champs",champs_cmd)); app.add_handler(CommandHandler("choose",choose)); app.add_handler(CommandHandler("profile",profile))
-    app.add_handler(CommandHandler("name",nickname)); app.add_handler(CommandHandler("nickname",nickname))
+    app.add_handler(CommandHandler("start",start))
+    app.add_handler(CommandHandler("menu",menu))
+    app.add_handler(CommandHandler("intro",intro))
+    app.add_handler(CommandHandler("champs",champs_cmd))
+    app.add_handler(CommandHandler("choose",choose))
+    app.add_handler(CommandHandler("profile",profile))
+    app.add_handler(CommandHandler("name",nickname))
+    app.add_handler(CommandHandler("nickname",nickname))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,nickname_text_reply))
-    app.add_handler(CommandHandler(["rankings","leaderboard"],leaderboard)); app.add_handler(CommandHandler("inventory",inventory))
-    app.add_handler(CommandHandler("heal",heal)); app.add_handler(CommandHandler("explore",explore)); app.add_handler(CommandHandler("cutforsuimon",cutforsuimon))
-    app.add_handler(CommandHandler("givesuiball",give_suiball)); app.add_handler(CommandHandler("takesuiball",remove_suiball))
-    app.add_handler(CommandHandler("resetleaderboard",reset_leaderboard)); app.add_handler(CommandHandler("tournamenton",tournamenton))
-    app.add_handler(CommandHandler("tournamentoff",tournamentoff)); app.add_handler(CommandHandler("changechamp",change_champ))
-    app.add_handler(CommandHandler("xpboost",xpboost)); app.add_handler(CommandHandler("endfight",endfight)); app.add_handler(CommandHandler("fight",fight))
-    # Spezifische Callbacks ZUERST
+    app.add_handler(CommandHandler(["rankings","leaderboard"],leaderboard))
+    app.add_handler(CommandHandler("inventory",inventory))
+    app.add_handler(CommandHandler("heal",heal))
+    app.add_handler(CommandHandler("explore",explore))
+    app.add_handler(CommandHandler("cutforsuimon",cutforsuimon))
+    app.add_handler(CommandHandler("givesuiball",give_suiball))
+    app.add_handler(CommandHandler("takesuiball",remove_suiball))
+    app.add_handler(CommandHandler("resetleaderboard",reset_leaderboard))
+    app.add_handler(CommandHandler("tournamenton",tournamenton))
+    app.add_handler(CommandHandler("tournamentoff",tournamentoff))
+    app.add_handler(CommandHandler("changechamp",change_champ))
+    app.add_handler(CommandHandler("xpboost",xpboost))
+    app.add_handler(CommandHandler("endfight",endfight))
+    app.add_handler(CommandHandler("fight",fight))
+
+    # Callback-Handler: spezifisch zu allgemein
     app.add_handler(CallbackQueryHandler(heal_select_callback, pattern=r"^heal_select\|"))
     app.add_handler(CallbackQueryHandler(explore_world_callback, pattern=r"^explore_world\|"))
     app.add_handler(CallbackQueryHandler(catch_callback, pattern=r"^catch\|"))
@@ -1279,7 +1283,6 @@ def main():
     app.add_handler(CallbackQueryHandler(challenge_callback, pattern=r"^suimon_(accept|decline)\|"))
     app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff|battle_heal|noop)\|"))
     app.add_handler(CallbackQueryHandler(choose_callback, pattern=r"^choose\|"))
-    # menu_callback ZULETZT
     app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu(?:\||$)"))
 
     async def _afk_loop(application):
