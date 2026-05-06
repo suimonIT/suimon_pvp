@@ -576,7 +576,7 @@ def _battle_move_keyboard(cid,ck,pid,state):
     balls=int(players.get(pid,{}).get("suiballs",0)); used=state.get("suiballs_used",{}).get(pid,0)
     rem=max(0,1-used); can=balls>0 and rem>0
     bl=f"🧿 Use Suiball ({balls} 🎒 · {rem}/1 left)" if can else "🧿 Suiball (0 left)"
-    rows.append([InlineKeyboardButton(bl,callback_data=f"heal|{cid}" if can else f"noop|{cid}")])
+    rows.append([InlineKeyboardButton(bl,callback_data=f"battle_heal|{cid}" if can else f"noop|{cid}")])
     rows.append([InlineKeyboardButton("🏳️ Forfeit",callback_data=f"ff|{cid}")])
     return InlineKeyboardMarkup(rows)
 
@@ -606,7 +606,7 @@ async def battle_move_callback(update,context):
         winner=state["opponent"] if clicker==state["user"] else state["user"]
         await _battle_push_message(cid,state,context,f"🏳️ {display_name(clicker)} forfeits!",delay=0.25)
         await _end_battle(cid,state,context,winner=winner,loser=clicker); return
-    if kind == "battle_heal":
+    if kind=="battle_heal":
         tu=_battle_turn_user(state)
         if clicker!=tu: await q.answer("Not your turn.",show_alert=False); return
         balls=int(players.get(clicker,{}).get("suiballs",0))
@@ -886,7 +886,7 @@ async def heal_select_callback(update, context):
     await q.answer()
     uid = str(q.from_user.id)
     global players
-    players = load_players()  # <-- FEHLTE: players muss neu geladen werden
+    players = load_players()
     ensure_player(uid, q.from_user.first_name or "", q.from_user.username)
     ensure_daily(uid)
     
@@ -1255,26 +1255,6 @@ async def choose_callback(update,context):
     start_nickname_prompt(uid); save_players(players)
     await edit_menu_message(q,f"📝 Selected {c['display']}!\nUse /name YourName.",naming_prompt_kb())
 
-    # DEBUG: Callback-Logging
-import logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logging.getLogger("telegram.ext.CallbackQueryHandler").setLevel(logging.DEBUG)
-
-original_cqh = CallbackQueryHandler
-
-class DebugCQH(original_cqh):
-    async def handle_update(self, update, context, **kwargs):
-        if update.callback_query:
-            data = update.callback_query.data
-            match = self.pattern.match(data) if self.pattern else True
-            print(f"[CQH-DEBUG] data='{data}' | pattern='{self.pattern.pattern if self.pattern else 'None'}' | matches={bool(match)} | handler={self.callback.__name__}")
-        return await super().handle_update(update, context, **kwargs)
-
-# Monkey-patch
-import telegram.ext._callbackqueryhandler
-telegram.ext._callbackqueryhandler.CallbackQueryHandler = DebugCQH
-telegram.ext.CallbackQueryHandler = DebugCQH
-
 # =========================
 # MAIN
 # =========================
@@ -1290,15 +1270,16 @@ def main():
     app.add_handler(CommandHandler("resetleaderboard",reset_leaderboard)); app.add_handler(CommandHandler("tournamenton",tournamenton))
     app.add_handler(CommandHandler("tournamentoff",tournamentoff)); app.add_handler(CommandHandler("changechamp",change_champ))
     app.add_handler(CommandHandler("xpboost",xpboost)); app.add_handler(CommandHandler("endfight",endfight)); app.add_handler(CommandHandler("fight",fight))
+    # Spezifische Callbacks ZUERST
     app.add_handler(CallbackQueryHandler(heal_select_callback, pattern=r"^heal_select\|"))
     app.add_handler(CallbackQueryHandler(explore_world_callback, pattern=r"^explore_world\|"))
     app.add_handler(CallbackQueryHandler(catch_callback, pattern=r"^catch\|"))
     app.add_handler(CallbackQueryHandler(explore_flee_callback, pattern=r"^explore_flee\|"))
     app.add_handler(CallbackQueryHandler(select_suimon_callback, pattern=r"^select_suimon\|"))
     app.add_handler(CallbackQueryHandler(challenge_callback, pattern=r"^suimon_(accept|decline)\|"))
-    app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff|heal|noop)\|"))
+    app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff|battle_heal|noop)\|"))
     app.add_handler(CallbackQueryHandler(choose_callback, pattern=r"^choose\|"))
-# menu_callback ZULETZT (fängt menu|... und alles andere)
+    # menu_callback ZULETZT
     app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu(?:\||$)"))
 
     async def _afk_loop(application):
