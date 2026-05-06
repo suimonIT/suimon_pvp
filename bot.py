@@ -16,6 +16,7 @@ ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848, -1003407035529}
 PRIVILEGED_USER_IDS = {1638084297, 7105730933, 6274470012}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
 RANKINGS_IMAGE_CANDIDATES = ("rankings.jpg", "rankings.JPG", "rankings.png")
+EXPLORE_IMAGE_CANDIDATES = ("explore.png", "explore.jpg", "explore.JPG")
 
 PENDING_CHALLENGES = {}
 CHALLENGE_TIMEOUT = 60
@@ -77,7 +78,7 @@ CHAMPS = {
         {"name":"Hydro Pump","kind":"damage","power":60,"acc":0.82,"text":["blasts a jet!","unleashes a deluge!","pumps water!"]},
         {"name":"Hypnose","kind":"status_confuse","power":0,"acc":0.75,"confuse_turns":[1,2],"confuse_rare_chance":0.25,"text":["swings a pendant!","whispers!","drops a gaze!"]},
         {"name":"Bodycheck","kind":"damage_highcrit","power":44,"acc":0.88,"crit_bonus":0.12,"text":["rams forward!","crashes in!","delivers a hit!"]},
-        {"name":"Heuler","kind":"status_debuff","power":0,"acc":0.92,"atk_debuff_pct":0.30,"debuff_turns":2,"text":["howls!","screams!","wails!"]}]},
+        {"name":"Howling Haze","kind":"status_debuff","power":0,"acc":0.92,"atk_debuff_pct":0.30,"debuff_turns":2,"text":["lets out a howl that saps strength!","screams at a frequency that weakens!","wails like a banshee on ketamine!"]}]},
     "suideer": {"display":"Suideer","type":"fire","base":{"hp":148,"atk":26,"def":10,"spd":14},"moves":[
         {"name":"Flame Burst","kind":"damage","power":50,"acc":0.92,"text":["erupts in flame!","explodes with heat!","fires a fireball!"]},
         {"name":"Bambi Blaze","kind":"damage","power":65,"acc":0.80,"text":["looks innocent!","the world burns!","sets the forest on fire!"]},
@@ -111,6 +112,10 @@ def resolve_heal_image_path():
     return None
 def resolve_rankings_image_path():
     for n in RANKINGS_IMAGE_CANDIDATES:
+        if os.path.isfile(os.path.join(BASE_DIR,n)): return os.path.join(BASE_DIR,n)
+    return None
+def resolve_explore_image_path():
+    for n in EXPLORE_IMAGE_CANDIDATES:
         if os.path.isfile(os.path.join(BASE_DIR,n)): return os.path.join(BASE_DIR,n)
     return None
 def is_allowed_chat_id(cid): return cid in ALLOWED_GROUP_IDS
@@ -902,13 +907,21 @@ async def explore(update,context):
     if not await ensure_allowed_chat(update,context): return
     uid=await _bootstrap_user(update)
     if not update.message: return
-    if not get_active_suimon(uid): await update.message.reply_text("❌ Need a Suimon.",reply_markup=main_menu_kb(uid)); return
+    if not get_active_suimon(uid):
+        await update.message.reply_text("❌ Need a Suimon.",reply_markup=main_menu_kb(uid))
+        return
     kb=[]
     for k,w in WORLDS.items():
         last=players[uid].get(f"explore_{k}_date"); cd=last==td()
         kb.append([InlineKeyboardButton(f"{w['emoji']} {w['name']} {'✅' if cd else '🕒'}",callback_data=f"explore_world|{k}")])
     kb.append([InlineKeyboardButton("⬅️ Back",callback_data="menu|home")])
-    await update.message.reply_text("🌍 <b>Choose a world to explore:</b>\n(Each world once per day)",reply_markup=InlineKeyboardMarkup(kb),parse_mode="HTML")
+    caption = "🌍 <b>Choose a world to explore:</b>\n(Each world once per day)"
+    img = resolve_explore_image_path()
+    if img:
+        with open(img, "rb") as f:
+            await update.message.reply_photo(photo=f, caption=caption, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    else:
+        await update.message.reply_text(caption, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
 async def explore_world_callback(update, context):
     q = update.callback_query
@@ -1243,13 +1256,23 @@ async def menu_callback(update,context):
         kb.append([InlineKeyboardButton("⬅️ Back",callback_data="menu|home")])
         await edit_menu_message(q,"🏥 <b>Health Center</b>\nSelect a Suimon to heal (1 Suiball):",InlineKeyboardMarkup(kb)); return
     if action=="explore":
-        if not get_active_suimon(uid): await edit_menu_message(q,"❌ Need a Suimon.",main_menu_kb(uid)); return
+        await q.answer()
+        if not get_active_suimon(uid):
+            await edit_menu_message(q, "❌ Need a Suimon.", main_menu_kb(uid))
+            return
         kb=[]
         for k,w in WORLDS.items():
             last=players[uid].get(f"explore_{k}_date"); cd=last==td()
             kb.append([InlineKeyboardButton(f"{w['emoji']} {w['name']} {'✅' if cd else '🕒'}",callback_data=f"explore_world|{k}")])
         kb.append([InlineKeyboardButton("⬅️ Back",callback_data="menu|home")])
-        await edit_menu_message(q,"🌍 <b>Choose a world to explore:</b>\n(Each world once per day)",InlineKeyboardMarkup(kb)); return
+        caption = "🌍 <b>Choose a world to explore:</b>\n(Each world once per day)"
+        img = resolve_explore_image_path()
+        if img:
+            with open(img, "rb") as f:
+                await context.bot.send_photo(chat_id=q.message.chat.id, photo=f, caption=caption, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        else:
+            await context.bot.send_message(chat_id=q.message.chat.id, text=caption, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        return
     if action=="champs":
         lines=["📜 Starter Champs",""]
         for k in ["basaurimon","suimander","suiqrtle"]:
