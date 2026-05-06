@@ -606,7 +606,7 @@ async def battle_move_callback(update,context):
         winner=state["opponent"] if clicker==state["user"] else state["user"]
         await _battle_push_message(cid,state,context,f"🏳️ {display_name(clicker)} forfeits!",delay=0.25)
         await _end_battle(cid,state,context,winner=winner,loser=clicker); return
-    if kind=="heal":
+    if kind == "battle_heal":
         tu=_battle_turn_user(state)
         if clicker!=tu: await q.answer("Not your turn.",show_alert=False); return
         balls=int(players.get(clicker,{}).get("suiballs",0))
