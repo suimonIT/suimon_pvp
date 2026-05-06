@@ -15,6 +15,7 @@ DATA_FILE = os.path.join(BASE_DIR, "players.json")
 ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848, -1003407035529}
 PRIVILEGED_USER_IDS = {1638084297, 7105730933, 6274470012}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
+RANKINGS_IMAGE_CANDIDATES = ("rankings.jpg", "rankings.JPG", "rankings.png")
 
 PENDING_CHALLENGES = {}
 CHALLENGE_TIMEOUT = 60
@@ -106,6 +107,10 @@ def resolve_menu_image_path():
     return None
 def resolve_heal_image_path():
     for n in ("heal.jpg","heal.JPG","heal.png"):
+        if os.path.isfile(os.path.join(BASE_DIR,n)): return os.path.join(BASE_DIR,n)
+    return None
+def resolve_rankings_image_path():
+    for n in RANKINGS_IMAGE_CANDIDATES:
         if os.path.isfile(os.path.join(BASE_DIR,n)): return os.path.join(BASE_DIR,n)
     return None
 def is_allowed_chat_id(cid): return cid in ALLOWED_GROUP_IDS
@@ -817,7 +822,13 @@ async def leaderboard(update,context):
     if not await ensure_allowed_chat(update,context): return
     uid=await _bootstrap_user(update)
     if not update.message: return
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=build_rankings_text(uid,10), reply_markup=main_menu_kb(uid), parse_mode="HTML", disable_web_page_preview=True)
+    rankings_image = resolve_rankings_image_path()
+    rankings_text = build_rankings_text(uid, 10)
+    if rankings_image:
+        with open(rankings_image, "rb") as photo:
+            await update.message.reply_photo(photo=photo, caption=rankings_text, reply_markup=main_menu_kb(uid), parse_mode="HTML")
+    else:
+        await update.message.reply_text(rankings_text, reply_markup=main_menu_kb(uid), parse_mode="HTML", disable_web_page_preview=True)
 
 async def inventory(update,context):
     if not await ensure_allowed_chat(update,context): return
@@ -1027,7 +1038,7 @@ async def challenge_callback(update,context):
     q=update.callback_query
     if not q or not q.message: return
     await q.answer()
-    act, chal, tgt = q.data.split("|")  # KORRIGIERT
+    act, chal, tgt = q.data.split("|")
     cid=int(q.message.chat.id); clicker=str(q.from_user.id)
     if clicker!=tgt: await q.answer("Not for you.",show_alert=True); return
     payload=PENDING_CHALLENGES.get((cid,clicker))
@@ -1038,7 +1049,7 @@ async def challenge_callback(update,context):
     PENDING_CHALLENGES.pop((cid,clicker),None)
     if act.startswith("suimon_decline"):
         await edit_menu_message(q,"❌ Declined.",main_menu_kb(clicker)); return
-    await edit_menu_message(q,"✅ Accepted! Challenger, choose your Suimon first...")
+    await edit_menu_message(q,"✅ Accepted! Challenger, choose your Suimon first...",main_menu_kb(clicker))
     PENDING_SELECTION[cid]={"challenger":chal,"opponent":clicker,"challenger_suimon":None,"opponent_suimon":None}
     its=get_owned_suimon_list(chal); kb=[]
     for i,s in enumerate(its):
@@ -1208,7 +1219,13 @@ async def menu_callback(update,context):
         await edit_menu_message(q,txt,main_menu_kb(uid)); return
     if action=="leaderboard":
         await q.answer()
-        await context.bot.send_message(chat_id=q.message.chat.id, text=build_rankings_text(uid,10), reply_markup=main_menu_kb(uid), parse_mode="HTML", disable_web_page_preview=True)
+        rankings_image = resolve_rankings_image_path()
+        rankings_text = build_rankings_text(uid, 10)
+        if rankings_image:
+            with open(rankings_image, "rb") as photo:
+                await context.bot.send_photo(chat_id=q.message.chat.id, photo=photo, caption=rankings_text, reply_markup=main_menu_kb(uid), parse_mode="HTML")
+        else:
+            await context.bot.send_message(chat_id=q.message.chat.id, text=rankings_text, reply_markup=main_menu_kb(uid), parse_mode="HTML", disable_web_page_preview=True)
         return
     if action=="inventory":
         p=players[uid]; balls=int(p.get("suiballs",0)); net=int(p.get("net_balls",0))
