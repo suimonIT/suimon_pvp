@@ -524,23 +524,65 @@ async def _battle_prompt_turn(cid,state,context):
     await _battle_push_message(cid,state,context,f"\n🎯 {nm}'s turn — choose a move for {cn}:",delay=0.05,markup=kb,force_reposition=True)
 
 async def _end_battle(cid,state,context,winner,loser):
-    players[state["user"]]["owned_suimon"][state["u_idx"]]["hp"]=max(state["champ1"]["hp"],0)
-    players[state["opponent"]]["owned_suimon"][state["o_idx"]]["hp"]=max(state["champ2"]["hp"],0)
-    ui=state["u_idx"]; oi=state["o_idx"]; xpw,xpl=award_battle_xp(winner,loser,ui,oi)
+    # HP direkt aus dem state speichern – sicherer Weg
+    if state["user"] in players and "owned_suimon" in players[state["user"]]:
+        u_list = players[state["user"]]["owned_suimon"]
+        u_idx = state.get("u_idx", get_active_suimon_index(state["user"]))
+        if 0 <= u_idx < len(u_list):
+            u_list[u_idx]["hp"] = max(state["champ1"]["hp"], 0)
+    
+    if state["opponent"] in players and "owned_suimon" in players[state["opponent"]]:
+        o_list = players[state["opponent"]]["owned_suimon"]
+        o_idx = state.get("o_idx", get_active_suimon_index(state["opponent"]))
+        if 0 <= o_idx < len(o_list):
+            o_list[o_idx]["hp"] = max(state["champ2"]["hp"], 0)
+    
+    # XP vergeben – mit Fallback auf aktive Indizes
+    ui = state.get("u_idx", get_active_suimon_index(winner))
+    oi = state.get("o_idx", get_active_suimon_index(loser))
+    
+    # Sicherheitscheck: Indizes korrigieren falls nötig
+    if ui >= len(players.get(winner, {}).get("owned_suimon", [])):
+        ui = get_active_suimon_index(winner)
+    if oi >= len(players.get(loser, {}).get("owned_suimon", [])):
+        oi = get_active_suimon_index(loser)
+    
+    xpw, xpl = award_battle_xp(winner, loser, ui, oi)
     save_players(players)
-    ws=players[winner]["owned_suimon"][ui if winner==state["user"] else oi]
+    
+    w_name = display_name(winner, "Winner")
+    w_suimon = players[winner]["owned_suimon"][ui] if winner in players and players[winner].get("owned_suimon") else None
+    
     await _battle_push_message(cid,state,context,"The dust settles…",delay=0.45)
-    await _battle_push_message(cid,state,context,f"🏆 Winner: {display_name(winner)} with {suimon_full_name(ws)}!",delay=0.45)
+    await _battle_push_message(cid,state,context,f"🏆 Winner: {w_name} with {suimon_full_name(w_suimon) if w_suimon else '???'}!",delay=0.45)
     await _battle_push_message(cid,state,context,f"🎁 XP: {xpw} (Winner) / {xpl} (Loser)",delay=0.35)
+    
     lvlups=[]
-    us=players[state["user"]]["owned_suimon"][ui]; os_=players[state["opponent"]]["owned_suimon"][oi]
-    if us.get("just_leveled"): lvlups.append((state["p1_name"],us["level"])); us.pop("just_leveled",None)
-    if os_.get("just_leveled"): lvlups.append((state["p2_name"],os_["level"])); os_.pop("just_leveled",None)
+    if state["user"] in players:
+        u_list = players[state["user"]].get("owned_suimon", [])
+        u_idx_safe = state.get("u_idx", get_active_suimon_index(state["user"]))
+        if 0 <= u_idx_safe < len(u_list):
+            us = u_list[u_idx_safe]
+            if us.get("just_leveled"):
+                lvlups.append((state["p1_name"], us["level"]))
+                us.pop("just_leveled", None)
+    
+    if state["opponent"] in players:
+        o_list = players[state["opponent"]].get("owned_suimon", [])
+        o_idx_safe = state.get("o_idx", get_active_suimon_index(state["opponent"]))
+        if 0 <= o_idx_safe < len(o_list):
+            os_ = o_list[o_idx_safe]
+            if os_.get("just_leveled"):
+                lvlups.append((state["p2_name"], os_["level"]))
+                os_.pop("just_leveled", None)
+    
     if lvlups:
         await _battle_push_message(cid,state,context,"📣 Level Up!",delay=0.25)
         for n,lv in lvlups: await _battle_push_message(cid,state,context,f"⭐ {n} is now Lv.{lv}!",delay=0.25)
+    
     await _battle_push_message(cid,state,context,"✅ Battle complete.",delay=END_DELAY)
-    BATTLES.pop(cid,None); ACTIVE_BATTLES.discard(cid)
+    BATTLES.pop(cid,None)
+    ACTIVE_BATTLES.discard(cid)
 
 def _battle_move_keyboard(cid,ck,pid,state):
     moves=CHAMPS[ck]["moves"]; rows=[]; row=[]
