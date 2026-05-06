@@ -1209,14 +1209,10 @@ PENDING_RESETS = {}
 async def reset_leaderboard(update,context):
     if not await ensure_allowed_chat(update,context): return
     caller=await _bootstrap_user(update)
-    if not update.message or not update.effective_chat or not await is_privileged_user(context.bot,int(update.effective_chat.id),int(caller)): await update.message.reply_text("❌ Only privileged."); return    now=time.monotonic()
-    if PENDING_RESETS.get(caller) and now-PENDING_RESETS[caller]<30:
-        PENDING_RESETS.pop(caller,None)
-        for uid,p in players.items():
-            for s in p.get("owned_suimon",[]): s["level"]=1; s["xp"]=0; s["wins"]=0; s["losses"]=0; s["hp"]=get_stats(s["species"],1)["hp"]
-            p["suiballs"]=DAILY_SUIBALLS; p["wins"]=0; p["losses"]=0
-        save_players(players); await update.message.reply_text("♻️ Reset complete.")
-    else: PENDING_RESETS[caller]=now; await update.message.reply_text("Type /resetleaderboard again within 30s.")
+    if not update.message or not update.effective_chat or not await is_privileged_user(context.bot,int(update.effective_chat.id),int(caller)):
+        await update.message.reply_text("❌ Only privileged.")
+        return
+    now=time.monotonic()
 
 # ---------- MENU CALLBACKS ----------
 async def menu_callback(update,context):
