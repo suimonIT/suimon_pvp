@@ -74,11 +74,11 @@ CHAMPS = {
         {"name":"Bubble Beam","kind":"damage","power":46,"acc":0.93,"text":["releases warm bubbles!","fires bubbles!","floods the field!"]},
         {"name":"Aqua Tail","kind":"damage","power":52,"acc":0.88,"text":["slaps with a wet tail!","swings something wet!","whips up water!"]},
         {"name":"Hydro Burst","kind":"damage","power":60,"acc":0.82,"text":["builds pressure!","releases fluids!","explodes!"]}]},
-    "poolmon": {"display":"Poolmon","type":"water","base":{"hp":162,"atk":20,"def":13,"spd":8},"moves":[
-        {"name":"Hydro Pump","kind":"damage","power":60,"acc":0.82,"text":["blasts a jet!","unleashes a deluge!","pumps water!"]},
-        {"name":"Hypnose","kind":"status_confuse","power":0,"acc":0.75,"confuse_turns":[1,2],"confuse_rare_chance":0.25,"text":["swings a pendant!","whispers!","drops a gaze!"]},
-        {"name":"Bodycheck","kind":"damage_highcrit","power":44,"acc":0.88,"crit_bonus":0.12,"text":["rams forward!","crashes in!","delivers a hit!"]},
-        {"name":"Howling Haze","kind":"status_debuff","power":0,"acc":0.92,"atk_debuff_pct":0.30,"debuff_turns":2,"text":["lets out a howl that saps strength!","screams at a frequency that weakens!","wails like a banshee on ketamine!"]}]},
+    "poolmon": {"display":"Poolmon","type":"water","base":{"hp":148,"atk":20,"def":12,"spd":8},"moves":[
+        {"name":"Riptide","kind":"damage","power":60,"acc":0.82,"text":["drags the opponent into a swirling vortex of despair!","unleashes waves that hit like a bad hangover!","the current pulls harder than a debt collector!"]},
+        {"name":"Sedated Gaze","kind":"status_confuse","power":0,"acc":0.78,"confuse_turns":[1,1],"text":["locks eyes with the opponent – pupils dilate immediately, and their head goes foggy!","a single glance that hits like a tranquilizer dart to the brain!","stares deep into the enemy's soul, and now they can't remember what they were doing!"]},
+        {"name":"Abyssal Slam","kind":"damage_highcrit","power":44,"acc":0.88,"crit_bonus":0.12,"text":["bodychecks like a deep-sea freight train with no lights on!","crashes in from the darkness – you never saw it coming!","hits with the force of a pressure implosion at the bottom of the trench!"]},
+        {"name":"Howling Haze","kind":"status_debuff","power":0,"acc":0.92,"atk_debuff_pct":0.30,"debuff_turns":2,"text":["releases a cloud of ketamine-laced mist – the opponent's strength melts away!","a haunting howl echoes through the arena, sapping muscle and will!","the air turns thick with something that burns the throat and weakens the body!"]}]},
     "suideer": {"display":"Suideer","type":"fire","base":{"hp":148,"atk":26,"def":10,"spd":14},"moves":[
         {"name":"Flame Burst","kind":"damage","power":50,"acc":0.92,"text":["erupts in flame!","explodes with heat!","fires a fireball!"]},
         {"name":"Bambi Blaze","kind":"damage","power":65,"acc":0.80,"text":["looks innocent!","the world burns!","sets the forest on fire!"]},
@@ -612,9 +612,12 @@ async def battle_move_callback(update,context):
     await _battle_reposition_message(context.bot,cid,state,_battle_render(state),markup=None)
     try:
         for line in status_tick_lines(atk,an): await _battle_push_message(cid,state,context,line,delay=0.45)
+
+        # SOFORT prüfen, ob Angreifer durch Burn/Poison gestorben ist
         if atk["hp"]<=0:
             winner=state["opponent"] if clicker==state["user"] else state["user"]
             await _end_battle(cid,state,context,winner=winner,loser=clicker); return
+
         ok,sl=can_act(atk)
         if not ok:
             raw=sl[0]
@@ -629,12 +632,16 @@ async def battle_move_callback(update,context):
             dn=suimon_display_name(get_active_suimon(du)) if get_active_suimon(du) else "???"
             for line in do_move(atk,dfd,ak,dk,alv,mv,an,dn,dlv):
                 await _battle_push_message(cid,state,context,line,delay=0.55)
+
         atk["hp"]=max(0,int(atk["hp"])); dfd["hp"]=max(0,int(dfd["hp"]))
         await _battle_push_hud(cid,state,context,delay=0.25)
+
+        # SOFORT prüfen, ob Verteidiger gestorben ist
         if state["champ1"]["hp"]<=0 or state["champ2"]["hp"]<=0:
             winner=state["user"] if state["champ1"]["hp"]>0 else state["opponent"]
             loser=state["opponent"] if winner==state["user"] else state["user"]
             await _end_battle(cid,state,context,winner=winner,loser=loser); return
+
         state["actions"]+=1
         if state["round"]>=state["max_rounds"]:
             if state["champ1"]["hp"]==state["champ2"]["hp"]: winner=state["user"] if random.random()<0.5 else state["opponent"]
@@ -642,6 +649,7 @@ async def battle_move_callback(update,context):
             loser=state["opponent"] if winner==state["user"] else state["user"]
             await _battle_push_message(cid,state,context,"⏱️ Time! Battle ends by decision.",delay=0.35)
             await _end_battle(cid,state,context,winner=winner,loser=loser); return
+
         _battle_next_turn(state); await _battle_prompt_turn(cid,state,context)
     finally:
         if BATTLES.get(cid) is state: state["resolving"]=False
@@ -659,9 +667,12 @@ async def _auto_move(cid,state,context):
     try:
         await _battle_push_message(cid,state,context,f"⏰ {_battle_turn_name(state)} is AFK — auto-move triggered!",delay=0.4)
         for line in status_tick_lines(atk,an): await _battle_push_message(cid,state,context,line,delay=0.45)
+
+        # SOFORT prüfen, ob Angreifer durch Status gestorben ist
         if atk["hp"]<=0:
             winner=state["opponent"] if tu==state["user"] else state["user"]
             await _end_battle(cid,state,context,winner=winner,loser=tu); return
+
         ok,sl=can_act(atk)
         if not ok:
             raw=sl[0]
@@ -671,18 +682,23 @@ async def _auto_move(cid,state,context):
             await _battle_push_message(cid,state,context,line_out,delay=0.55)
         else:
             for line in do_move(atk,dfd,ak,dk,alv,moves[idx],an,dn,dlv): await _battle_push_message(cid,state,context,line,delay=0.55)
+
         atk["hp"]=max(0,int(atk["hp"])); dfd["hp"]=max(0,int(dfd["hp"]))
         await _battle_push_hud(cid,state,context,delay=0.25)
+
+        # SOFORT prüfen, ob Verteidiger gestorben ist
         if state["champ1"]["hp"]<=0 or state["champ2"]["hp"]<=0:
             winner=state["user"] if state["champ1"]["hp"]>0 else state["opponent"]
             loser=state["opponent"] if winner==state["user"] else state["user"]
             await _end_battle(cid,state,context,winner=winner,loser=loser); return
+
         state["actions"]+=1
         if state["round"]>=state["max_rounds"]:
             winner=state["user"] if random.random()<0.5 else state["opponent"] if state["champ1"]["hp"]==state["champ2"]["hp"] else (state["user"] if state["champ1"]["hp"]>state["champ2"]["hp"] else state["opponent"])
             loser=state["opponent"] if winner==state["user"] else state["user"]
             await _battle_push_message(cid,state,context,"⏱️ Time! Battle ends by decision.",delay=0.35)
             await _end_battle(cid,state,context,winner=winner,loser=loser); return
+
         _battle_next_turn(state); await _battle_prompt_turn(cid,state,context)
     finally:
         if BATTLES.get(cid) is state: state["resolving"]=False
@@ -1193,8 +1209,7 @@ PENDING_RESETS = {}
 async def reset_leaderboard(update,context):
     if not await ensure_allowed_chat(update,context): return
     caller=await _bootstrap_user(update)
-    if not update.message or not update.effective_chat or not await is_privileged_user(context.bot,int(update.effective_chat.id),int(caller)): await update.message.reply_text("❌ Only privileged."); return
-    now=time.monotonic()
+    if not update.message or not update.effective_chat or not await is_privileged_user(context.bot,int(update.effective_chat.id),int(caller)): await update.message.reply_text("❌ Only privileged."); return    now=time.monotonic()
     if PENDING_RESETS.get(caller) and now-PENDING_RESETS[caller]<30:
         PENDING_RESETS.pop(caller,None)
         for uid,p in players.items():
