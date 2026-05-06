@@ -2564,12 +2564,38 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await edit_menu_message(query, f"🎒 Inventory\n🧿 Suiballs: {balls}\n🥅 Net Balls: {net}", main_menu_kb(user_id))
         return
     if action == "heal":
-        await query.message.delete()
-        await heal(update, context)
+        # DIREKT Heal-Auswahl anzeigen, ohne Message-Delete
+        items = get_owned_suimon_list(user_id)
+        if not items:
+            await edit_menu_message(query, "You have no Suimon.", main_menu_kb(user_id))
+            return
+        balls = int(players[user_id].get("suiballs", 0))
+        if balls <= 0:
+            await edit_menu_message(query, f"❌ No Suiballs. You get {DAILY_SUIBALLS}/day.", main_menu_kb(user_id))
+            return
+        kb = []
+        for i, s in enumerate(items):
+            cur_hp = s.get("hp", 0)
+            max_hp = get_stats(s["species"], int(s.get("level", 1)))["hp"]
+            status = "✅" if cur_hp >= max_hp else "❤️‍🩹"
+            label = f"{status} {suimon_full_name(s)} ({cur_hp}/{max_hp})"
+            kb.append([InlineKeyboardButton(label, callback_data=f"heal_select|{i}")])
+        kb.append([InlineKeyboardButton("⬅️ Back", callback_data="menu|home")])
+        await edit_menu_message(query, "🏥 <b>Health Center</b>\nSelect a Suimon to heal (1 Suiball):", InlineKeyboardMarkup(kb))
         return
     if action == "explore":
-        await query.message.delete()
-        await explore(update, context)
+        # DIREKT Explore-Auswahl anzeigen, ohne Message-Delete
+        if not get_active_suimon(user_id):
+            await edit_menu_message(query, "❌ You need at least one Suimon to explore.", main_menu_kb(user_id))
+            return
+        kb = []
+        for key, world in WORLDS.items():
+            last = players[user_id].get(f"explore_{key}_date")
+            cooldown = (last == today_str())
+            label = f"{world['emoji']} {world['name']} {'✅' if cooldown else '🕒'}"
+            kb.append([InlineKeyboardButton(label, callback_data=f"explore_world|{key}")])
+        kb.append([InlineKeyboardButton("⬅️ Back", callback_data="menu|home")])
+        await edit_menu_message(query, "🌍 <b>Choose a world to explore:</b>\n(Each world once per day)", InlineKeyboardMarkup(kb))
         return
     if action == "champs":
         lines = ["📜 Starter Champs", ""]
