@@ -880,20 +880,43 @@ async def heal(update,context):
     kb.append([InlineKeyboardButton("⬅️ Back",callback_data="menu|home")])
     await update.message.reply_text("🏥 <b>Health Center</b>\nSelect a Suimon to heal (1 Suiball):",reply_markup=InlineKeyboardMarkup(kb),parse_mode="HTML")
 
-async def heal_select_callback(update,context):
-    q=update.callback_query
+async def heal_select_callback(update, context):
+    q = update.callback_query
     if not q: return
     await q.answer()
-    uid=str(q.from_user.id); global players
-    ensure_player(uid,q.from_user.first_name or "",q.from_user.username); ensure_daily(uid)
-    idx=int(q.data.split("|")[1]); its=get_owned_suimon_list(uid)
-    if idx<0 or idx>=len(its): await q.edit_message_text("Invalid selection.",reply_markup=main_menu_kb(uid)); return
-    s=its[idx]; mx=get_stats(s["species"],int(s.get("level",1)))["hp"]
-    if s.get("hp",0)>=mx: await q.edit_message_text("Already full HP.",reply_markup=main_menu_kb(uid)); return
-    balls=int(players[uid].get("suiballs",0))
-    if balls<=0: await q.edit_message_text("❌ No Suiballs.",reply_markup=main_menu_kb(uid)); return
-    players[uid]["suiballs"]=balls-1; heal_suimon_by_index(uid,idx); save_players(players)
-    await q.edit_message_text(f"🧿 <b>{suimon_full_name(s)}</b> healed to full HP ({mx}/{mx})!\nRemaining Suiballs: {players[uid]['suiballs']}",reply_markup=main_menu_kb(uid),parse_mode="HTML")
+    uid = str(q.from_user.id)
+    global players
+    players = load_players()  # <-- FEHLTE: players muss neu geladen werden
+    ensure_player(uid, q.from_user.first_name or "", q.from_user.username)
+    ensure_daily(uid)
+    
+    parts = q.data.split("|")
+    if len(parts) < 2: return
+    idx = int(parts[1])
+    its = get_owned_suimon_list(uid)
+    
+    if idx < 0 or idx >= len(its):
+        await q.edit_message_text("Invalid selection.", reply_markup=main_menu_kb(uid))
+        return
+    
+    s = its[idx]
+    mx = get_stats(s["species"], int(s.get("level", 1)))["hp"]
+    if s.get("hp", 0) >= mx:
+        await q.edit_message_text("Already full HP.", reply_markup=main_menu_kb(uid))
+        return
+    
+    balls = int(players[uid].get("suiballs", 0))
+    if balls <= 0:
+        await q.edit_message_text("❌ No Suiballs.", reply_markup=main_menu_kb(uid))
+        return
+    
+    players[uid]["suiballs"] = balls - 1
+    heal_suimon_by_index(uid, idx)
+    save_players(players)
+    await q.edit_message_text(
+        f"🧿 <b>{suimon_full_name(s)}</b> healed to full HP ({mx}/{mx})!\nRemaining Suiballs: {players[uid]['suiballs']}",
+        reply_markup=main_menu_kb(uid), parse_mode="HTML"
+    )
 
 async def cutforsuimon(update,context):
     if not await ensure_allowed_chat(update,context): return
@@ -917,23 +940,46 @@ async def explore(update,context):
     kb.append([InlineKeyboardButton("⬅️ Back",callback_data="menu|home")])
     await update.message.reply_text("🌍 <b>Choose a world to explore:</b>\n(Each world once per day)",reply_markup=InlineKeyboardMarkup(kb),parse_mode="HTML")
 
-async def explore_world_callback(update,context):
-    q=update.callback_query
+async def explore_world_callback(update, context):
+    q = update.callback_query
     if not q: return
     await q.answer()
-    uid=str(q.from_user.id); ensure_player(uid,q.from_user.first_name or "",q.from_user.username); ensure_daily(uid)
-    wk=q.data.split("|")[1]; w=WORLDS.get(wk)
-    if not w: await q.edit_message_text("World not found."); return
-    p=players[uid]; ck=f"explore_{wk}_date"
-    if p.get(ck)==td(): await q.edit_message_text(f"⏳ Already explored {w['name']} today.",reply_markup=main_menu_kb(uid)); return
-    if random.random()<w["encounter_chance"]:
-        ws=random.choice(w["suimon"]); wd=CHAMPS[ws]
-        txt=f"{w['emoji']} Exploring <b>{w['name']}</b>...\n\n🌿 A wild <b>{wd['display']}</b> appeared!\nType: {TYPE_EMOJI[wd['type']]}\n\nCatch it? (Costs 1 Net Ball, 50%)"
-        kb=InlineKeyboardMarkup([[InlineKeyboardButton("🎯 Catch",callback_data=f"catch|{wk}|{ws}"),InlineKeyboardButton("🏃 Flee",callback_data=f"explore_flee|{wk}")]])
-        await q.edit_message_text(txt,reply_markup=kb,parse_mode="HTML")
+    uid = str(q.from_user.id)
+    ensure_player(uid, q.from_user.first_name or "", q.from_user.username)
+    ensure_daily(uid)
+    
+    parts = q.data.split("|")
+    if len(parts) < 2: return
+    wk = parts[1]
+    w = WORLDS.get(wk)
+    
+    if not w:
+        await q.edit_message_text("World not found.", reply_markup=main_menu_kb(uid))
+        return
+    
+    p = players[uid]
+    ck = f"explore_{wk}_date"
+    
+    if p.get(ck) == td():
+        await q.edit_message_text(f"⏳ Already explored {w['name']} today.", reply_markup=main_menu_kb(uid))
+        return
+    
+    if random.random() < w["encounter_chance"]:
+        ws = random.choice(w["suimon"])
+        wd = CHAMPS[ws]
+        txt = f"{w['emoji']} Exploring <b>{w['name']}</b>...\n\n🌿 A wild <b>{wd['display']}</b> appeared!\nType: {TYPE_EMOJI[wd['type']]}\n\nCatch it? (Costs 1 Net Ball, 50%)"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎯 Catch", callback_data=f"catch|{wk}|{ws}"),
+             InlineKeyboardButton("🏃 Flee", callback_data=f"explore_flee|{wk}")]
+        ])
+        await q.edit_message_text(txt, reply_markup=kb, parse_mode="HTML")
     else:
-        p[ck]=td(); save_players(players)
-        await q.edit_message_text(f"{w['emoji']} You explore <b>{w['name']}</b>...\n\nNo encounter. Try again tomorrow!",reply_markup=main_menu_kb(uid),parse_mode="HTML")
+        p[ck] = td()
+        save_players(players)
+        await q.edit_message_text(
+            f"{w['emoji']} You explore <b>{w['name']}</b>...\n\nNo encounter. Try again tomorrow!",
+            reply_markup=main_menu_kb(uid), parse_mode="HTML"
+        )
 
 async def catch_callback(update,context):
     q=update.callback_query
@@ -1224,11 +1270,16 @@ def main():
     app.add_handler(CommandHandler("resetleaderboard",reset_leaderboard)); app.add_handler(CommandHandler("tournamenton",tournamenton))
     app.add_handler(CommandHandler("tournamentoff",tournamentoff)); app.add_handler(CommandHandler("changechamp",change_champ))
     app.add_handler(CommandHandler("xpboost",xpboost)); app.add_handler(CommandHandler("endfight",endfight)); app.add_handler(CommandHandler("fight",fight))
-    app.add_handler(CallbackQueryHandler(menu_callback,pattern=r"^menu(?:\||$)")); app.add_handler(CallbackQueryHandler(choose_callback,pattern=r"^choose\|"))
-    app.add_handler(CallbackQueryHandler(challenge_callback,pattern=r"^suimon_(accept|decline)\|")); app.add_handler(CallbackQueryHandler(select_suimon_callback,pattern=r"^select_suimon\|"))
-    app.add_handler(CallbackQueryHandler(explore_world_callback,pattern=r"^explore_world\|")); app.add_handler(CallbackQueryHandler(catch_callback,pattern=r"^catch\|"))
-    app.add_handler(CallbackQueryHandler(explore_flee_callback,pattern=r"^explore_flee\|")); app.add_handler(CallbackQueryHandler(heal_select_callback,pattern=r"^heal_select\|"))
-    app.add_handler(CallbackQueryHandler(battle_move_callback,pattern=r"^(mv|ff|heal|noop)\|"))
+    app.add_handler(CallbackQueryHandler(heal_select_callback, pattern=r"^heal_select\|"))
+    app.add_handler(CallbackQueryHandler(explore_world_callback, pattern=r"^explore_world\|"))
+    app.add_handler(CallbackQueryHandler(catch_callback, pattern=r"^catch\|"))
+    app.add_handler(CallbackQueryHandler(explore_flee_callback, pattern=r"^explore_flee\|"))
+    app.add_handler(CallbackQueryHandler(select_suimon_callback, pattern=r"^select_suimon\|"))
+    app.add_handler(CallbackQueryHandler(challenge_callback, pattern=r"^suimon_(accept|decline)\|"))
+    app.add_handler(CallbackQueryHandler(battle_move_callback, pattern=r"^(mv|ff|heal|noop)\|"))
+    app.add_handler(CallbackQueryHandler(choose_callback, pattern=r"^choose\|"))
+# menu_callback ZULETZT (fängt menu|... und alles andere)
+    app.add_handler(CallbackQueryHandler(menu_callback, pattern=r"^menu(?:\||$)"))
 
     async def _afk_loop(application):
         while True:
