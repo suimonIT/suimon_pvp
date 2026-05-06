@@ -112,9 +112,9 @@ STATUS_EMOJI = {"burn":"🔥","sleep":"💤","confuse":"🌀","poison":"☠️",
 CHAMPS_BY_TYPE = {"fire":{"strong_against":"nature","weak_to":"water"},"water":{"strong_against":"fire","weak_to":"nature"},"nature":{"strong_against":"water","weak_to":"fire"}}
 
 WORLDS = {
-    "sedative_abyss":{"name":"Sedative Abyss","emoji":"🌊","type":"water","suimon":["poolmon"],"flavor":"dark ocean trenches","encounter_chance":0.30},
-    "crackspit_peaks":{"name":"Crackspit Peaks","emoji":"🔥","type":"fire","suimon":["suideer"],"flavor":"volcanic mountains","encounter_chance":0.30},
-    "hash_highlands":{"name":"Hash Highlands","emoji":"🌍","type":"nature","suimon":["jengacide"],"flavor":"rolling hills","encounter_chance":0.30},
+    "sedative_abyss":{"name":"Sedative Abyss","emoji":"🌊","type":"water","suimon":["poolmon"],"flavor":"dark ocean trenches","encounter_chance":0.20},
+    "crackspit_peaks":{"name":"Crackspit Peaks","emoji":"🔥","type":"fire","suimon":["suideer"],"flavor":"volcanic mountains","encounter_chance":0.20},
+    "hash_highlands":{"name":"Hash Highlands","emoji":"🌍","type":"nature","suimon":["jengacide"],"flavor":"rolling hills","encounter_chance":0.20},
 }
 
 def resolve_menu_image_path():
@@ -844,6 +844,13 @@ async def profile(update,context):
     txt=f"🪪 <b>Trainer Card</b>\n\n👤 {display_name(uid)}\n🏅 Record: {w}W / {lo}L\n"
     if badges: txt+=f"🎖️ Badges: {badges}\n"
     txt+=f"\n{TYPE_EMOJI[cd['type']]} {suimon_full_name(s)} (Lv.{lv}){fainted}\n❤️ HP: {chp}/{st['hp']}\n✨ XP: {s.get('xp',0)}/{xp_needed(lv) if lv<MAX_LEVEL else 0}\n📈 Stats: ATK {st['atk']} | DEF {st['def']} | SPD {st['spd']}\n\n🎒 Suiballs: {balls} | 🥅 Net Balls: {nballs}\n📦 Team: {len(get_owned_suimon_list(uid))} Suimon"
+    # GANZES TEAM ANZEIGEN
+    tl=[]
+    for i,su in enumerate(get_owned_suimon_list(uid)):
+        act="⭐" if i==get_active_suimon_index(uid) else "  "
+        hp=su.get("hp",0); mx=get_stats(su["species"],int(su.get("level",1)))["hp"]
+        tl.append(f"{act} {suimon_full_name(su)} Lv.{su.get('level',1)} HP {hp}/{mx}")
+    txt+="\n\n<b>Your Suimon:</b>\n"+"\n".join(tl)
     await update.message.reply_text(txt,reply_markup=main_menu_kb(uid),parse_mode="HTML")
 
 async def leaderboard(update,context):
@@ -984,10 +991,10 @@ async def catch_callback(update,context):
         p["active_suimon"]=len(p["owned_suimon"])-1
         save_players(players)
         start_nickname_prompt(uid)
-        await edit_menu_message(q, f"🎉 <b>{CHAMPS[ws]['display']}</b> caught! Added to team.\n\nUse <code>/name</code> to nickname it.", naming_prompt_kb())
+        await edit_menu_message(q, f"🎉 <b>{CHAMPS[ws]['display']}</b> caught! Added to your team.\n\nUse <code>/name YourName</code> to give it a nickname.", naming_prompt_kb())
     else:
         save_players(players)
-        await edit_menu_message(q, f"💨 <b>{CHAMPS[ws]['display']}</b> escaped!", main_menu_kb(uid))
+        await edit_menu_message(q, f"💨 The wild <b>{CHAMPS[ws]['display']}</b> escaped! Better luck next time.", main_menu_kb(uid))
 
 async def explore_flee_callback(update,context):
     q=update.callback_query
@@ -1038,11 +1045,14 @@ async def challenge_callback(update,context):
     _,act,chal,tgt=q.data.split("|"); cid=int(q.message.chat.id); clicker=str(q.from_user.id)
     if clicker!=tgt: await q.answer("Not for you.",show_alert=True); return
     payload=PENDING_CHALLENGES.get((cid,clicker))
-    if not payload or time.monotonic()-payload.get("ts_mono",0)>CHALLENGE_TIMEOUT: await q.edit_message_text("Expired."); return
-    if str(payload.get("from"))!=chal: await q.edit_message_text("Mismatch."); return
+    if not payload or time.monotonic()-payload.get("ts_mono",0)>CHALLENGE_TIMEOUT:
+        await edit_menu_message(q,"Expired.",main_menu_kb(clicker)); return
+    if str(payload.get("from"))!=chal:
+        await edit_menu_message(q,"Mismatch.",main_menu_kb(clicker)); return
     PENDING_CHALLENGES.pop((cid,clicker),None)
-    if act.startswith("suimon_decline"): await q.edit_message_text("❌ Declined."); return
-    await q.edit_message_text("✅ Accepted! Challenger, choose your Suimon first...")
+    if act.startswith("suimon_decline"):
+        await edit_menu_message(q,"❌ Declined.",main_menu_kb(clicker)); return
+    await edit_menu_message(q,"✅ Accepted! Challenger, choose your Suimon first...")
     PENDING_SELECTION[cid]={"challenger":chal,"opponent":clicker,"challenger_suimon":None,"opponent_suimon":None}
     its=get_owned_suimon_list(chal); kb=[]
     for i,s in enumerate(its):
@@ -1203,8 +1213,18 @@ async def menu_callback(update,context):
         txt=f"🪪 <b>Trainer Card</b>\n\n👤 {display_name(uid)}\n🏅 Record: {w}W / {lo}L\n"
         if badges: txt+=f"🎖️ Badges: {badges}\n"
         txt+=f"\n{TYPE_EMOJI[cd['type']]} {suimon_full_name(s)} (Lv.{lv}){fainted}\n❤️ HP: {chp}/{st['hp']}\n✨ XP: {s.get('xp',0)}/{xp_needed(lv) if lv<MAX_LEVEL else 0}\n📈 Stats: ATK {st['atk']} | DEF {st['def']} | SPD {st['spd']}\n\n🎒 Suiballs: {balls} | 🥅 Net Balls: {nballs}\n📦 Team: {len(get_owned_suimon_list(uid))} Suimon"
+        # GANZES TEAM ANZEIGEN
+        tl=[]
+        for i,su in enumerate(get_owned_suimon_list(uid)):
+            act="⭐" if i==get_active_suimon_index(uid) else "  "
+            hp=su.get("hp",0); mx=get_stats(su["species"],int(su.get("level",1)))["hp"]
+            tl.append(f"{act} {suimon_full_name(su)} Lv.{su.get('level',1)} HP {hp}/{mx}")
+        txt+="\n\n<b>Your Suimon:</b>\n"+"\n".join(tl)
         await edit_menu_message(q,txt,main_menu_kb(uid)); return
-    if action=="leaderboard": await edit_menu_message(q,build_rankings_text(uid,10),main_menu_kb(uid)); return
+    if action=="leaderboard":
+        await q.answer()
+        await q.message.reply_text(build_rankings_text(uid,10), reply_markup=main_menu_kb(uid), parse_mode="HTML", disable_web_page_preview=True)
+        return
     if action=="inventory":
         p=players[uid]; balls=int(p.get("suiballs",0)); net=int(p.get("net_balls",0))
         await edit_menu_message(q,f"🎒 Inventory\n🧿 Suiballs: {balls}\n🥅 Net Balls: {net}",main_menu_kb(uid)); return
@@ -1279,7 +1299,6 @@ def main():
     app.add_handler(CommandHandler("endfight",endfight))
     app.add_handler(CommandHandler("fight",fight))
 
-    # Callback-Handler: spezifisch zu allgemein
     app.add_handler(CallbackQueryHandler(heal_select_callback, pattern=r"^heal_select\|"))
     app.add_handler(CallbackQueryHandler(explore_world_callback, pattern=r"^explore_world\|"))
     app.add_handler(CallbackQueryHandler(catch_callback, pattern=r"^catch\|"))
