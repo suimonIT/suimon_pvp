@@ -1,39 +1,26 @@
-import random
-import json
-import os
-import asyncio
-import html
-import time
+import random, json, os, asyncio, html, time
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Any
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply, ChatMember
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatMember
 from telegram.error import BadRequest, RetryAfter, TimedOut, NetworkError
 from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
+    ApplicationBuilder, CommandHandler, CallbackQueryHandler,
+    ContextTypes, MessageHandler, filters,
 )
 
-# =========================
-# CONFIG
-# =========================
 TOKEN = "8429890592:AAHkdeR_2pGp4EOVTT-lBrYAlBlRjK2tW7Y"
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "players.json")
 ALLOWED_GROUP_IDS = {-1002664937769, -1003839722848, -1003407035529}
 PRIVILEGED_USER_IDS = {1638084297, 7105730933, 6274470012}
 MENU_IMAGE_CANDIDATES = ("logo.JPG", "logo.jpg", "logo.png", "menu.jpg", "menu.png")
 
-PENDING_CHALLENGES: Dict[Tuple[int, str], Dict[str, Any]] = {}
+PENDING_CHALLENGES = {}
 CHALLENGE_TIMEOUT = 60
-ACTIVE_BATTLES: set[int] = set()
-BATTLES: Dict[int, Dict[str, Any]] = {}
-PENDING_SELECTION: Dict[int, Dict[str, Any]] = {}
+ACTIVE_BATTLES = set()
+BATTLES = {}
+PENDING_SELECTION = {}
 
 INTRO_DELAY = 0.8
 REPOSITION_COOLDOWN = 3.5
@@ -56,24 +43,19 @@ NETBALL_CAP = 3
 
 TOURNAMENT_FILE = os.path.join(BASE_DIR, "tournament.json")
 
-def load_tournament() -> Dict[str, Any]:
+def load_tournament():
     if not os.path.exists(TOURNAMENT_FILE): return {"active": False}
     try: return json.load(open(TOURNAMENT_FILE, "r"))
     except: return {"active": False}
+def save_tournament(data): json.dump(data, open(TOURNAMENT_FILE, "w"), indent=2)
 
-def save_tournament(data: Dict[str, Any]) -> None: json.dump(data, open(TOURNAMENT_FILE, "w"), indent=2)
+tournament_state = load_tournament()
+def is_tournament_active(): return tournament_state.get("active", False)
+def is_xp_boost_active(): return time.time() < tournament_state.get("xp_boost_expires", 0)
+def get_xp_boost_multiplier(): return 1.5 if is_xp_boost_active() else 1.0
+def get_daily_suiballs(): return DAILY_SUIBALLS_TOURNAMENT if is_tournament_active() else DAILY_SUIBALLS
+def get_suiball_cap(): return SUIBALL_CAP_TOURNAMENT if is_tournament_active() else SUIBALL_CAP
 
-tournament_state: Dict[str, Any] = load_tournament()
-
-def is_tournament_active() -> bool: return tournament_state.get("active", False)
-def is_xp_boost_active() -> bool: return time.time() < tournament_state.get("xp_boost_expires", 0)
-def get_xp_boost_multiplier() -> float: return 1.5 if is_xp_boost_active() else 1.0
-def get_daily_suiballs() -> int: return DAILY_SUIBALLS_TOURNAMENT if is_tournament_active() else DAILY_SUIBALLS
-def get_suiball_cap() -> int: return SUIBALL_CAP_TOURNAMENT if is_tournament_active() else SUIBALL_CAP
-
-# =========================
-# CHAMPS
-# =========================
 CHAMPS = {
     "basaurimon": {"display":"Basaurimon","type":"nature","base":{"hp":160,"atk":24,"def":11,"spd":9},"moves":[
         {"name":"Vine Whip","kind":"damage","power":48,"acc":0.95,"text":["whips out something long and flexible!","snaps its vine like a dominatrix!","lashes harder than a dealer!"]},
@@ -117,18 +99,16 @@ WORLDS = {
     "hash_highlands":{"name":"Hash Highlands","emoji":"🌍","type":"nature","suimon":["jengacide"],"flavor":"rolling hills","encounter_chance":0.20},
 }
 
+# ---------- HILFSFUNKTIONEN ----------
 def resolve_menu_image_path():
     for n in MENU_IMAGE_CANDIDATES:
         if os.path.isfile(os.path.join(BASE_DIR,n)): return os.path.join(BASE_DIR,n)
     return None
-
 def resolve_heal_image_path():
     for n in ("heal.jpg","heal.JPG","heal.png"):
         if os.path.isfile(os.path.join(BASE_DIR,n)): return os.path.join(BASE_DIR,n)
     return None
-
 def is_allowed_chat_id(cid): return cid in ALLOWED_GROUP_IDS
-
 async def ensure_allowed_chat(update, context=None):
     cid = int(update.effective_chat.id) if update.effective_chat else None
     if is_allowed_chat_id(cid): return True
@@ -140,7 +120,6 @@ async def ensure_allowed_chat(update, context=None):
         try: await update.effective_message.reply_text(msg, parse_mode="HTML")
         except: pass
     return False
-
 async def is_privileged_user(bot, chat_id, user_id):
     if user_id in PRIVILEGED_USER_IDS: return True
     try: return (await bot.get_chat_member(chat_id, user_id)).status == ChatMember.OWNER
@@ -178,14 +157,10 @@ async def edit_menu_message(query, cap, markup, **kw):
         try: await query.message.reply_text(cap, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=kw.get("disable_web_page_preview",True))
         except: pass
 
-# =========================
-# HELFER
-# =========================
 def load_players():
     if not os.path.exists(DATA_FILE): return {}
     try: return json.load(open(DATA_FILE,"r",encoding="utf-8"))
     except: return {}
-
 def save_players(pd):
     json.dump(pd, open(DATA_FILE+".tmp","w",encoding="utf-8"), ensure_ascii=False, indent=2)
     os.replace(DATA_FILE+".tmp", DATA_FILE)
@@ -254,7 +229,6 @@ def migrate_players():
         for o in ("champ","champ_nickname","level","xp","hp","awaiting_nickname","just_leveled"): p.pop(o,None)
         changed=True
     if changed: save_players(players)
-
 migrate_players()
 
 def ensure_player(uid, nm, un=None):
@@ -355,33 +329,29 @@ def build_rankings_text(uid=None,limit=10):
         else: lines.append(f"{rank}. <b>{lnk}</b> • Lv.<b>{s['level'] if s else '?'}</b>")
     if uid and get_active_suimon(uid):
         s=get_active_suimon(uid)
-        all_ids=[x for x,_ in enumerate(sorted([u for u,p in players.items() if p.get("owned_suimon")],key=ranking_sort_key),1) if x[1]==uid]
-        rk=all_ids[0] if all_ids else "?"
+        sorted_uids = [u for u,p in players.items() if p.get("owned_suimon")]
+        sorted_uids.sort(key=ranking_sort_key)
+        try: rk = sorted_uids.index(uid) + 1
+        except ValueError: rk = "?"
         lines.extend(["","━━━━━━━━━━",f"👤 <b>You:</b> #{rk} • Lv.<b>{s['level']}</b>"])
     return "\n".join(lines)
 
-# =========================
-# KAMPF-ENGINE
-# =========================
+# ---------- KAMPFENGINE / MESSAGE EDIT ----------
 def type_mult(at,df):
     if CHAMPS_BY_TYPE[at]["strong_against"]==df: return 1.08,"strong"
     if CHAMPS_BY_TYPE[at]["weak_to"]==df: return 0.95,"weak"
     return 1.0,"neutral"
-
 def pick_first_attacker(sp1,sp2):
     if sp1==sp2: return 0 if random.random()<0.5 else 1
     return 0 if random.random()<clamp(0.5+(sp1-sp2)/40.0,0.25,0.75) else 1
-
 def level_gap_miss_penalty(al,dl):
     gap=al-dl
     return min(0.15,gap*0.03) if gap>0 else 0.0
-
 def calc_damage(aatk,ddef,lv,pwr,tmult,cmult,dlv=0):
     eatk=max(1,int(aatk)); edef=max(1,int(ddef)); elv=max(lv,5)
     lvf=1.0+(elv-3)*0.015; base=4.0*pwr*eatk/(edef*1.25); base=(base/8)+2
     base*=lvf*random.uniform(0.92,1.08)
     return max(1,int(round(base*tmult*cmult)))
-
 def status_tick_lines(cs,cd):
     out=[]
     if cs.get("burn_turns",0)>0:
@@ -395,7 +365,6 @@ def status_tick_lines(cs,cd):
         if cs["wet_dream_turns"]==0: out.append(f"{STATUS_EMOJI['wet_dream']} {cd} comes back down.")
         else: out.append(random.choice([f"{STATUS_EMOJI['wet_dream']} {cd} is still seeing things!",f"{STATUS_EMOJI['wet_dream']} {cd} flinches!"]))
     return out
-
 def can_act(cs):
     if cs.get("sleep_turns",0)>0:
         cs["sleep_turns"]-=1
@@ -408,7 +377,6 @@ def can_act(cs):
     if cs.get("stun_turns",0)>0:
         cs["stun_turns"]-=1; return False,["is stunned!"]
     return True,[]
-
 def do_move(atk,dfd,ak,dk,alv,mv,an=None,dn=None,dlv=0):
     out=[]; a=CHAMPS[ak]; d=CHAMPS[dk]; an=an or a["display"]; dn=dn or d["display"]
     bmiss=1.0-float(mv.get("acc",0.9)); emiss=min(0.60,bmiss+level_gap_miss_penalty(alv,dlv))
@@ -480,9 +448,6 @@ def do_move(atk,dfd,ak,dk,alv,mv,an=None,dn=None,dlv=0):
         dfd["stun_turns"]=int(mv.get("stun_turns",1)); out.append(f"🌀 Stunned!")
     return out
 
-# =========================
-# MESSAGE EDIT / BATTLE UI
-# =========================
 async def _safe_edit(bot,cid,mid,txt,markup=None):
     if len(txt)>MAX_MESSAGE_CHARS: txt=txt[-MAX_MESSAGE_CHARS:]
     for _ in range(5):
@@ -720,9 +685,8 @@ async def _afk_watcher(context):
             state["last_move_ts"]=now
             try: await _auto_move(cid,state,context)
             except Exception as e: print(f"[AFK] Error {e}")
-            # =========================
-# MENÜS
-# =========================
+
+# ---------- MENÜS ----------
 def main_menu_kb(uid=None):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📜 Champs",callback_data="menu|champs"), InlineKeyboardButton("⚔️ Fight",callback_data="menu|fight")],
@@ -758,9 +722,7 @@ def fancy_menu_caption(uid):
     ts=len(p.get("owned_suimon",[]))
     return f"{title}\n\n{ti} <b>{cl}</b> • Lv.<b>{lv}</b>\n❤️ <b>HP:</b> {chp}/{st['hp']}\n✨ <b>XP:</b> {xp}/{need if lv<MAX_LEVEL else 0}\n⚔️ <b>Record:</b> {w}W / {l}L\n🎒 <b>Suiballs:</b> {balls} | 🥅 <b>Net Balls:</b> {nballs}\n📦 <b>Team:</b> {ts} Suimon\n\nChoose your next move below."
 
-# =========================
-# COMMANDS
-# =========================
+# ---------- COMMANDS ----------
 async def _bootstrap_user(update):
     global players; players=load_players()
     uid=str(update.effective_user.id); nm=(update.effective_user.first_name or "Player").strip()
@@ -957,27 +919,14 @@ async def explore_world_callback(update, context):
         await edit_menu_message(q, f"⏳ Already explored {w['name']} today.", main_menu_kb(uid))
         return
 
-    # Schrittweise Erkundung anzeigen
     bot = context.bot
     chat_id = q.message.chat.id
     nm = html.escape(display_name(uid))
 
     flavor_texts = {
-        "sedative_abyss": [
-            f"{nm} dives into the dark ocean trenches...",
-            "The water feels heavy, almost tranquilizing...",
-            "Searching through the abyss..."
-        ],
-        "crackspit_peaks": [
-            f"{nm} climbs the volcanic mountains...",
-            "The lava flows like a crack pipe, fumes everywhere...",
-            "Looking around the peaks..."
-        ],
-        "hash_highlands": [
-            f"{nm} wanders through the rolling hills...",
-            "Ancient cannabis fields stretch endlessly...",
-            "Sniffing the air for something interesting..."
-        ]
+        "sedative_abyss": [f"{nm} dives into the dark ocean trenches...", "The water feels heavy, almost tranquilizing...", "Searching through the abyss..."],
+        "crackspit_peaks": [f"{nm} climbs the volcanic mountains...", "The lava flows like a crack pipe, fumes everywhere...", "Looking around the peaks..."],
+        "hash_highlands": [f"{nm} wanders through the rolling hills...", "Ancient cannabis fields stretch endlessly...", "Sniffing the air for something interesting..."]
     }
 
     texts = flavor_texts.get(wk, [f"{nm} explores...", "Searching...", "..."])
@@ -1002,11 +951,7 @@ async def explore_world_callback(update, context):
     else:
         p[ck] = td()
         save_players(players)
-        no_texts = [
-            "Didn't find anything... too stoned!",
-            "Nothing here but wasted time.",
-            "Checked everywhere, but it's empty."
-        ]
+        no_texts = ["Didn't find anything... too stoned!", "Nothing here but wasted time.", "Checked everywhere, but it's empty."]
         try: await status_msg.edit_text(f"{w['emoji']} {random.choice(no_texts)}", parse_mode="HTML")
         except: pass
         try: await status_msg.edit_reply_markup(reply_markup=main_menu_kb(uid))
@@ -1082,7 +1027,8 @@ async def challenge_callback(update,context):
     q=update.callback_query
     if not q or not q.message: return
     await q.answer()
-    _,act,chal,tgt=q.data.split("|"); cid=int(q.message.chat.id); clicker=str(q.from_user.id)
+    act, chal, tgt = q.data.split("|")  # KORRIGIERT
+    cid=int(q.message.chat.id); clicker=str(q.from_user.id)
     if clicker!=tgt: await q.answer("Not for you.",show_alert=True); return
     payload=PENDING_CHALLENGES.get((cid,clicker))
     if not payload or time.monotonic()-payload.get("ts_mono",0)>CHALLENGE_TIMEOUT:
