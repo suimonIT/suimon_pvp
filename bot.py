@@ -46,17 +46,42 @@ NETBALL_CAP = 3
 TOURNAMENT_FILE = os.path.join(BASE_DIR, "tournament.json")
 
 def load_tournament():
-    if not os.path.exists(TOURNAMENT_FILE): return {"active": False}
-    try: return json.load(open(TOURNAMENT_FILE, "r"))
-    except: return {"active": False}
-def save_tournament(data): json.dump(data, open(TOURNAMENT_FILE, "w"), indent=2)
+    if not os.path.exists(TOURNAMENT_FILE): 
+        return {"active": False, "type": None}
+    try: 
+        data = json.load(open(TOURNAMENT_FILE, "r"))
+        if "type" not in data:
+            data["type"] = None
+        return data
+    except: 
+        return {"active": False, "type": None}
+
+def save_tournament(data): 
+    json.dump(data, open(TOURNAMENT_FILE, "w"), indent=2)
 
 tournament_state = load_tournament()
-def is_tournament_active(): return tournament_state.get("active", False)
-def is_xp_boost_active(): return time.time() < tournament_state.get("xp_boost_expires", 0)
-def get_xp_boost_multiplier(): return 1.5 if is_xp_boost_active() else 1.0
-def get_daily_suiballs(): return DAILY_SUIBALLS_TOURNAMENT if is_tournament_active() else DAILY_SUIBALLS
-def get_suiball_cap(): return SUIBALL_CAP_TOURNAMENT if is_tournament_active() else SUIBALL_CAP
+
+def is_tournament_active(): 
+    return tournament_state.get("active", False)
+
+def get_tournament_type():
+    return tournament_state.get("type")
+
+def get_tournament_badge():
+    types = {"earth": "🌍", "fire": "🔥", "water": "💧"}
+    return types.get(get_tournament_type(), "🏆")
+
+def is_xp_boost_active(): 
+    return time.time() < tournament_state.get("xp_boost_expires", 0)
+
+def get_xp_boost_multiplier(): 
+    return 1.5 if is_xp_boost_active() else 1.0
+
+def get_daily_suiballs(): 
+    return DAILY_SUIBALLS_TOURNAMENT if is_tournament_active() else DAILY_SUIBALLS
+
+def get_suiball_cap(): 
+    return SUIBALL_CAP_TOURNAMENT if is_tournament_active() else SUIBALL_CAP
 
 CHAMPS = {
     "": {"display":"Basaurimon","type":"nature","base":{"hp":162,"atk":25,"def":11,"spd":9},"moves":[
@@ -106,19 +131,25 @@ def resolve_menu_image_path():
     for n in MENU_IMAGE_CANDIDATES:
         if os.path.isfile(os.path.join(BASE_DIR,n)): return os.path.join(BASE_DIR,n)
     return None
+
 def resolve_heal_image_path():
     for n in ("heal.jpg","heal.JPG","heal.png"):
         if os.path.isfile(os.path.join(BASE_DIR,n)): return os.path.join(BASE_DIR,n)
     return None
+
 def resolve_rankings_image_path():
     for n in RANKINGS_IMAGE_CANDIDATES:
         if os.path.isfile(os.path.join(BASE_DIR,n)): return os.path.join(BASE_DIR,n)
     return None
+
 def resolve_explore_image_path():
     for n in EXPLORE_IMAGE_CANDIDATES:
         if os.path.isfile(os.path.join(BASE_DIR,n)): return os.path.join(BASE_DIR,n)
     return None
-def is_allowed_chat_id(cid): return cid in ALLOWED_GROUP_IDS
+
+def is_allowed_chat_id(cid): 
+    return cid in ALLOWED_GROUP_IDS
+
 async def ensure_allowed_chat(update, context=None):
     cid = int(update.effective_chat.id) if update.effective_chat else None
     if is_allowed_chat_id(cid): return True
@@ -130,6 +161,7 @@ async def ensure_allowed_chat(update, context=None):
         try: await update.effective_message.reply_text(msg, parse_mode="HTML")
         except: pass
     return False
+
 async def is_privileged_user(bot, chat_id, user_id):
     if user_id in PRIVILEGED_USER_IDS: return True
     try: return (await bot.get_chat_member(chat_id, user_id)).status == ChatMember.OWNER
@@ -171,56 +203,121 @@ def load_players():
     if not os.path.exists(DATA_FILE): return {}
     try: return json.load(open(DATA_FILE,"r",encoding="utf-8"))
     except: return {}
+
 def save_players(pd):
     json.dump(pd, open(DATA_FILE+".tmp","w",encoding="utf-8"), ensure_ascii=False, indent=2)
     os.replace(DATA_FILE+".tmp", DATA_FILE)
 
 players = load_players()
 
-def champ_from_key(k): return CHAMPS[k]
-def td(): return datetime.now(TZ).date().isoformat()
-def clamp(x,l,h): return max(l, min(h, x))
+def champ_from_key(k): 
+    return CHAMPS[k]
+
+def td(): 
+    return datetime.now(TZ).date().isoformat()
+
+def clamp(x,l,h): 
+    return max(l, min(h, x))
+
 def hp_bar(cur,mx,ln=10):
     mx=max(1,int(mx)); cur=max(0,min(int(cur),mx)); f=int(round((cur/mx)*ln))
     return "█"*f + "░"*(ln-f)
+
 def fmt_hp(lbl,cur,mx):
     mx=max(1,int(mx)); cur=max(0,min(int(cur),mx))
     return f"{lbl}\nHP {cur:>3}/{mx:<3} [{hp_bar(cur,mx)}]"
-def battle_hud(l1,h1,m1,l2,h2,m2): return fmt_hp(l1,h1,m1)+"\n\n"+fmt_hp(l2,h2,m2)
+
+def battle_hud(l1,h1,m1,l2,h2,m2): 
+    return fmt_hp(l1,h1,m1)+"\n\n"+fmt_hp(l2,h2,m2)
+
 def xp_needed(lv):
     lv = max(1, min(int(lv), MAX_LEVEL))
     return {1:450,2:720,3:1125,4:1710,5:2520,6:3600,7:5085,8:7110,9:9900}.get(lv,9900)
+
 def ck_input(a):
     if not a: return None
     return {"basaur":"basaurimon","basaurimon":"basaurimon","suimander":"suimander","mander":"suimander","suiqrtle":"suiqrtle","squirtle":"suiqrtle","qrtle":"suiqrtle","poolmon":"poolmon","suideer":"suideer","jengacide":"jengacide"}.get(a.lower().strip())
+
 def get_stats(k,lv):
     lv=max(1,min(int(lv),MAX_LEVEL)); b=CHAMPS[k]["base"]
     return {"hp":int(round(b["hp"]+(lv-1)*2)),"atk":int(round(b["atk"]+(lv-1)*0.25)),"def":int(round(b["def"]+(lv-1)*0.3)),"spd":int(round(b["spd"]+(lv-1)*1))}
-def display_name(uid,fb="Player"): return (players.get(uid,{}).get("name") or fb).strip()
+
+def display_name(uid,fb="Player"): 
+    return (players.get(uid,{}).get("name") or fb).strip()
+
 def get_active_suimon_index(uid):
     p=players.get(uid,{}); its=p.get("owned_suimon",[])
     return max(0, min(int(p.get("active_suimon",0)), len(its)-1)) if its else 0
+
 def get_active_suimon(uid):
     its=players.get(uid,{}).get("owned_suimon",[]); idx=get_active_suimon_index(uid)
     return its[idx] if 0<=idx<len(its) else None
-def get_owned_suimon_list(uid): return players.get(uid,{}).get("owned_suimon",[])
-def suimon_display_name(s): return s.get("nickname") or CHAMPS.get(s["species"],{}).get("display","Unknown")
+
+def get_owned_suimon_list(uid): 
+    return players.get(uid,{}).get("owned_suimon",[])
+
+def suimon_display_name(s): 
+    return s.get("nickname") or CHAMPS.get(s["species"],{}).get("display","Unknown")
+
 def suimon_full_name(s):
     n=s.get("nickname"); b=CHAMPS.get(s["species"],{}).get("display","Unknown")
     return f"{n} ({b})" if n else b
+
 def sanitize_nick(raw):
     return " ".join("".join(c for c in raw.strip() if c.isalnum() or c in " _-").split())[:18].strip()
+
 def has_named_champ(uid):
     s=get_active_suimon(uid); return s is not None and bool(s.get("nickname"))
+
 def needs_nickname_prompt(uid):
     s=get_active_suimon(uid); return s is not None and not s.get("nickname")
-def start_nickname_prompt(uid): players[uid]["_awaiting_nickname"]=True; save_players(players)
-def clear_nickname_prompt(uid): players[uid]["_awaiting_nickname"]=False; save_players(players)
+
+def start_nickname_prompt(uid): 
+    players[uid]["_awaiting_nickname"]=True; save_players(players)
+
+def clear_nickname_prompt(uid): 
+    players[uid]["_awaiting_nickname"]=False; save_players(players)
+
 def get_badges_display(uid):
     b=players.get(uid,{}).get("badges",[])
     if not b: return ""
     m={"cascade":"🌊","volcano":"🔥","earth":"🌍"}
     return " ".join(m.get(x,"🏅") for x in b)
+
+# Duplikate entfernen Funktion
+def remove_duplicate_suimon():
+    """Entfernt doppelte Suimon aus allen Spieler-Teams"""
+    global players
+    players = load_players()
+    changed = False
+    
+    for uid, p in players.items():
+        if "owned_suimon" not in p:
+            continue
+            
+        owned = p["owned_suimon"]
+        if not owned:
+            continue
+        
+        seen = {}
+        unique = []
+        for s in owned:
+            species = s.get("species")
+            if species in seen:
+                changed = True
+                continue
+            seen[species] = True
+            unique.append(s)
+        
+        if len(unique) != len(owned):
+            p["owned_suimon"] = unique
+            active = p.get("active_suimon", 0)
+            if active >= len(unique):
+                p["active_suimon"] = max(0, len(unique) - 1)
+            changed = True
+    
+    if changed:
+        save_players(players)
 
 def migrate_players():
     changed=False
@@ -239,7 +336,9 @@ def migrate_players():
         for o in ("champ","champ_nickname","level","xp","hp","awaiting_nickname","just_leveled"): p.pop(o,None)
         changed=True
     if changed: save_players(players)
+
 migrate_players()
+remove_duplicate_suimon()  # Bestehende Duplikate entfernen
 
 def ensure_player(uid, nm, un=None):
     if uid not in players:
@@ -351,17 +450,21 @@ def type_mult(at,df):
     if CHAMPS_BY_TYPE[at]["strong_against"]==df: return 1.08,"strong"
     if CHAMPS_BY_TYPE[at]["weak_to"]==df: return 0.95,"weak"
     return 1.0,"neutral"
+
 def pick_first_attacker(sp1,sp2):
     if sp1==sp2: return 0 if random.random()<0.5 else 1
     return 0 if random.random()<clamp(0.5+(sp1-sp2)/40.0,0.25,0.75) else 1
+
 def level_gap_miss_penalty(al,dl):
     gap=al-dl
     return min(0.15,gap*0.03) if gap>0 else 0.0
+
 def calc_damage(aatk,ddef,lv,pwr,tmult,cmult,dlv=0):
     eatk=max(1,int(aatk)); edef=max(1,int(ddef)); elv=max(lv,5)
     lvf=1.0+(elv-3)*0.015; base=4.0*pwr*eatk/(edef*1.25); base=(base/8)+2
     base*=lvf*random.uniform(0.92,1.08)
     return max(1,int(round(base*tmult*cmult)))
+
 def status_tick_lines(cs,cd):
     out=[]
     if cs.get("burn_turns",0)>0:
@@ -375,6 +478,7 @@ def status_tick_lines(cs,cd):
         if cs["wet_dream_turns"]==0: out.append(f"{STATUS_EMOJI['wet_dream']} {cd} comes back down.")
         else: out.append(random.choice([f"{STATUS_EMOJI['wet_dream']} {cd} is still seeing things!",f"{STATUS_EMOJI['wet_dream']} {cd} flinches!"]))
     return out
+
 def can_act(cs):
     if cs.get("sleep_turns",0)>0:
         cs["sleep_turns"]-=1
@@ -387,6 +491,7 @@ def can_act(cs):
     if cs.get("stun_turns",0)>0:
         cs["stun_turns"]-=1; return False,["is stunned!"]
     return True,[]
+
 def do_move(atk,dfd,ak,dk,alv,mv,an=None,dn=None,dlv=0):
     out=[]; a=CHAMPS[ak]; d=CHAMPS[dk]; an=an or a["display"]; dn=dn or d["display"]
     bmiss=1.0-float(mv.get("acc",0.9)); emiss=min(0.60,bmiss+level_gap_miss_penalty(alv,dlv))
@@ -524,7 +629,6 @@ async def _battle_prompt_turn(cid,state,context):
     await _battle_push_message(cid,state,context,f"\n🎯 {nm}'s turn — choose a move for {cn}:",delay=0.05,markup=kb,force_reposition=True)
 
 async def _end_battle(cid,state,context,winner,loser):
-    # HP direkt aus dem state speichern – sicherer Weg
     if state["user"] in players and "owned_suimon" in players[state["user"]]:
         u_list = players[state["user"]]["owned_suimon"]
         u_idx = state.get("u_idx", get_active_suimon_index(state["user"]))
@@ -537,11 +641,9 @@ async def _end_battle(cid,state,context,winner,loser):
         if 0 <= o_idx < len(o_list):
             o_list[o_idx]["hp"] = max(state["champ2"]["hp"], 0)
     
-    # XP vergeben – mit Fallback auf aktive Indizes
     ui = state.get("u_idx", get_active_suimon_index(winner))
     oi = state.get("o_idx", get_active_suimon_index(loser))
     
-    # Sicherheitscheck: Indizes korrigieren falls nötig
     if ui >= len(players.get(winner, {}).get("owned_suimon", [])):
         ui = get_active_suimon_index(winner)
     if oi >= len(players.get(loser, {}).get("owned_suimon", [])):
@@ -655,7 +757,6 @@ async def battle_move_callback(update,context):
     try:
         for line in status_tick_lines(atk,an): await _battle_push_message(cid,state,context,line,delay=0.45)
 
-        # SOFORT prüfen, ob Angreifer durch Burn/Poison gestorben ist
         if atk["hp"]<=0:
             winner=state["opponent"] if clicker==state["user"] else state["user"]
             await _end_battle(cid,state,context,winner=winner,loser=clicker); return
@@ -678,7 +779,6 @@ async def battle_move_callback(update,context):
         atk["hp"]=max(0,int(atk["hp"])); dfd["hp"]=max(0,int(dfd["hp"]))
         await _battle_push_hud(cid,state,context,delay=0.25)
 
-        # SOFORT prüfen, ob Verteidiger gestorben ist
         if state["champ1"]["hp"]<=0 or state["champ2"]["hp"]<=0:
             winner=state["user"] if state["champ1"]["hp"]>0 else state["opponent"]
             loser=state["opponent"] if winner==state["user"] else state["user"]
@@ -710,7 +810,6 @@ async def _auto_move(cid,state,context):
         await _battle_push_message(cid,state,context,f"⏰ {_battle_turn_name(state)} is AFK — auto-move triggered!",delay=0.4)
         for line in status_tick_lines(atk,an): await _battle_push_message(cid,state,context,line,delay=0.45)
 
-        # SOFORT prüfen, ob Angreifer durch Status gestorben ist
         if atk["hp"]<=0:
             winner=state["opponent"] if tu==state["user"] else state["user"]
             await _end_battle(cid,state,context,winner=winner,loser=tu); return
@@ -728,7 +827,6 @@ async def _auto_move(cid,state,context):
         atk["hp"]=max(0,int(atk["hp"])); dfd["hp"]=max(0,int(dfd["hp"]))
         await _battle_push_hud(cid,state,context,delay=0.25)
 
-        # SOFORT prüfen, ob Verteidiger gestorben ist
         if state["champ1"]["hp"]<=0 or state["champ2"]["hp"]<=0:
             winner=state["user"] if state["champ1"]["hp"]>0 else state["opponent"]
             loser=state["opponent"] if winner==state["user"] else state["user"]
@@ -771,7 +869,8 @@ def choose_champ_kb():
         [InlineKeyboardButton("⬅️ Back",callback_data="menu|home")],
     ])
 
-def naming_prompt_kb(): return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back",callback_data="menu|home")]])
+def naming_prompt_kb(): 
+    return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back",callback_data="menu|home")]])
 
 def nickname_required_text(uid):
     s=get_active_suimon(uid)
@@ -1052,6 +1151,16 @@ async def catch_callback(update,context):
     if nb<=0:
         await edit_menu_message(q, "❌ No Net Balls!", main_menu_kb(uid))
         return
+    
+    # Prüfen ob bereits ein Suimon dieser Art im Team ist
+    owned_species = [s.get("species") for s in p.get("owned_suimon", [])]
+    if ws in owned_species:
+        p["net_balls"] = nb - 1
+        p[ck] = td()
+        save_players(players)
+        await q.edit_message_text(f"⚠️ You already have a <b>{CHAMPS[ws]['display']}</b>! Can't catch duplicates.\nYou used 1 Net Ball though...", parse_mode="HTML", reply_markup=main_menu_kb(uid))
+        return
+    
     p["net_balls"]=nb-1; p[ck]=td()
     if random.random()<0.5:
         p.setdefault("owned_suimon",[]).append({"species":ws,"nickname":None,"level":1,"xp":0,"hp":get_stats(ws,1)["hp"],"wins":0,"losses":0})
@@ -1132,31 +1241,59 @@ async def challenge_callback(update,context):
 async def select_suimon_callback(update,context):
     q=update.callback_query
     if not q: return
-    await q.answer(); uid=str(q.from_user.id); _,role,idx=q.data.split("|"); idx=int(idx); cid=int(q.message.chat.id)
+    await q.answer()
+    uid=str(q.from_user.id); _,role,idx=q.data.split("|"); idx=int(idx); cid=int(q.message.chat.id)
     sel=PENDING_SELECTION.get(cid)
-    if not sel: await q.edit_message_text("Expired."); return
-    if (role=="challenger" and uid!=sel["challenger"]) or (role=="opponent" and uid!=sel["opponent"]): await q.answer("Not your selection.",show_alert=True); return
+    if not sel: 
+        await q.edit_message_text("Selection expired. Start a new challenge with /fight.")
+        return
+    if (role=="challenger" and uid!=sel["challenger"]) or (role=="opponent" and uid!=sel["opponent"]): 
+        await q.answer("Not your selection.",show_alert=True)
+        return
     its=get_owned_suimon_list(uid)
-    if idx<0 or idx>=len(its): await q.answer("Invalid."); return
-    if its[idx]["hp"]<=0: await q.answer("Fainted! Choose another.",show_alert=True); return
+    if idx<0 or idx>=len(its): 
+        await q.answer("Invalid.")
+        return
+    if its[idx]["hp"]<=0: 
+        await q.answer("Fainted! Choose another.",show_alert=True)
+        return
     sel[f"{role}_suimon"]=idx
     if role=="challenger":
-        opp=sel["opponent"]; its2=get_owned_suimon_list(opp); kb=[]
+        opp=sel["opponent"]
+        its2=get_owned_suimon_list(opp)
+        # Filtere nur nicht-ohnmächtige Suimon
+        valid_buttons = []
         for i,s in enumerate(its2):
             fnt="💀" if s["hp"]<=0 else ""
-            kb.append([InlineKeyboardButton(f"{suimon_full_name(s)} Lv.{s['level']} ({s['hp']}/{get_stats(s['species'],s['level'])['hp']}) {fnt}",callback_data=f"select_suimon|opponent|{i}")])
-        await q.edit_message_text(f"✅ Challenger selected {suimon_full_name(its[idx])}!\n\n🎯 <b>{html.escape(display_name(opp))}</b>, choose:",reply_markup=InlineKeyboardMarkup(kb),parse_mode="HTML")
+            if s["hp"] > 0:
+                valid_buttons.append([InlineKeyboardButton(f"{suimon_full_name(s)} Lv.{s['level']} ({s['hp']}/{get_stats(s['species'],s['level'])['hp']})", callback_data=f"select_suimon|opponent|{i}")])
+        if not valid_buttons:
+            await q.edit_message_text(f"❌ {html.escape(display_name(opp))} has no healthy Suimon to battle!", reply_markup=main_menu_kb(uid), parse_mode="HTML")
+            PENDING_SELECTION.pop(cid, None)
+            return
+        await q.edit_message_text(f"✅ Challenger selected {suimon_full_name(its[idx])}!\n\n🎯 <b>{html.escape(display_name(opp))}</b>, choose your Suimon:", reply_markup=InlineKeyboardMarkup(valid_buttons), parse_mode="HTML")
     else:
+        # Beide haben ausgewählt - Battle starten
         await q.edit_message_text("✅ Both selected! Battle starting...")
-        await _start_battle_with_suimon(cid,sel,context)
+        # Kurze Verzögerung bevor Battle startet
+        await asyncio.sleep(1)
+        await _start_battle_with_suimon(cid, sel, context)
+        # Cleanup
+        PENDING_SELECTION.pop(cid, None)
 
 async def _start_battle_with_suimon(cid,sel,context):
     global players; players=load_players()
     u=sel["challenger"]; o=sel["opponent"]; ui=sel["challenger_suimon"]; oi=sel["opponent_suimon"]
-    if cid in ACTIVE_BATTLES: await context.bot.send_message(cid,"⚠️ Battle already running."); return
+    if cid in ACTIVE_BATTLES: 
+        await context.bot.send_message(cid,"⚠️ Battle already running.")
+        return
     us=players[u]["owned_suimon"][ui]; os_=players[o]["owned_suimon"][oi]
-    if us["hp"]<=0 or os_["hp"]<=0: await context.bot.send_message(cid,"❌ Fainted Suimon."); return
-    ACTIVE_BATTLES.add(cid); msg=await context.bot.send_message(cid,"⚔️ BATTLE START (loading...)"); mid=msg.message_id
+    if us["hp"]<=0 or os_["hp"]<=0: 
+        await context.bot.send_message(cid,"❌ Fainted Suimon.")
+        return
+    ACTIVE_BATTLES.add(cid)
+    msg=await context.bot.send_message(cid,"⚔️ BATTLE START (loading...)")
+    mid=msg.message_id
     c1k=us["species"]; c2k=os_["species"]; lv1=int(us["level"]); lv2=int(os_["level"]); s1=get_stats(c1k,lv1); s2=get_stats(c2k,lv2)
     c1={"hp":int(us["hp"]),"max_hp":s1["hp"],"atk":s1["atk"],"def":s1["def"],"spd":s1["spd"],"burn_turns":0,"sleep_turns":0,"confuse_turns":0,"poison_turns":0,"wet_dream_turns":0,"wet_dream_uses_left":2 if c1k=="suimander" else 0,"has_slept":False,"last_used_sleep":False,"stun_turns":0}
     c2={"hp":int(os_["hp"]),"max_hp":s2["hp"],"atk":s2["atk"],"def":s2["def"],"spd":s2["spd"],"burn_turns":0,"sleep_turns":0,"confuse_turns":0,"poison_turns":0,"wet_dream_turns":0,"wet_dream_uses_left":2 if c2k=="suimander" else 0,"has_slept":False,"last_used_sleep":False,"stun_turns":0}
@@ -1189,24 +1326,58 @@ async def change_champ(update,context):
     else: its.append({"species":nc,"nickname":None,"level":1,"xp":0,"hp":get_stats(nc,1)["hp"],"wins":0,"losses":0})
     save_players(players); await update.message.reply_text(f"✅ {display_name(target)}'s active Suimon changed.")
 
-async def tournamenton(update,context):
-    if not await ensure_allowed_chat(update,context): return
-    adm=await _bootstrap_user(update)
-    if not update.message or not update.effective_chat or not await is_privileged_user(context.bot,int(update.effective_chat.id),int(adm)): await update.message.reply_text("❌ Only privileged."); return
-    tournament_state["active"]=True; save_tournament(tournament_state)
-    for uid in players: players[uid]["suiballs"]=100
-    save_players(players); await update.message.reply_text("🏆 TOURNAMENT STARTED! Everyone gets 100 Suiballs.",parse_mode="HTML")
+async def tournament_earth(update, context):
+    await _start_tournament(update, context, "earth", "🌍")
 
-async def tournamentoff(update,context):
-    if not await ensure_allowed_chat(update,context): return
-    adm=await _bootstrap_user(update)
-    if not update.message or not update.effective_chat or not await is_privileged_user(context.bot,int(update.effective_chat.id),int(adm)): await update.message.reply_text("❌ Only privileged."); return
-    tournament_state["active"]=False; save_tournament(tournament_state)
-    top=get_leaderboard(10)
-    if top:
-        wid=top[0][0]; players[wid].setdefault("badges",[]).append("earth"); save_players(players)
-        await update.message.reply_text(f"🏁 Winner: {display_name(wid)} gets Earth Badge! 🌍",parse_mode="HTML")
-    else: await update.message.reply_text("Tournament ended. No players.")
+async def tournament_fire(update, context):
+    await _start_tournament(update, context, "fire", "🔥")
+
+async def tournament_water(update, context):
+    await _start_tournament(update, context, "water", "💧")
+
+async def _start_tournament(update, context, tourney_type, emoji):
+    if not await ensure_allowed_chat(update, context): return
+    adm = await _bootstrap_user(update)
+    if not update.message or not update.effective_chat or not await is_privileged_user(context.bot, int(update.effective_chat.id), int(adm)):
+        await update.message.reply_text("❌ Only privileged users can start tournaments.")
+        return
+    
+    tournament_state["active"] = True
+    tournament_state["type"] = tourney_type
+    save_tournament(tournament_state)
+    
+    for uid in players:
+        players[uid]["suiballs"] = SUIBALL_CAP_TOURNAMENT
+    save_players(players)
+    
+    type_names = {"earth": "Earth (🌍)", "fire": "Fire (🔥)", "water": "Water (💧)"}
+    await update.message.reply_text(f"🏆 {type_names[tourney_type]} TOURNAMENT STARTED! Everyone gets {SUIBALL_CAP_TOURNAMENT} Suiballs.", parse_mode="HTML")
+
+async def tournament_off(update, context):
+    if not await ensure_allowed_chat(update, context): return
+    adm = await _bootstrap_user(update)
+    if not update.message or not update.effective_chat or not await is_privileged_user(context.bot, int(update.effective_chat.id), int(adm)):
+        await update.message.reply_text("❌ Only privileged.")
+        return
+    
+    tourney_type = tournament_state.get("type")
+    tournament_state["active"] = False
+    tournament_state["type"] = None
+    save_tournament(tournament_state)
+    
+    top = get_leaderboard(10)
+    badge_map = {"earth": "earth", "fire": "volcano", "water": "cascade"}
+    if top and tourney_type in badge_map:
+        wid = top[0][0]
+        players[wid].setdefault("badges", [])
+        if badge_map[tourney_type] not in players[wid]["badges"]:
+            players[wid]["badges"].append(badge_map[tourney_type])
+        save_players(players)
+        
+        badge_emojis = {"earth": "🌍", "fire": "🔥", "water": "💧"}
+        await update.message.reply_text(f"🏁 Tournament ended! Winner: {display_name(wid)} gets {badge_emojis[tourney_type]} badge!", parse_mode="HTML")
+    else:
+        await update.message.reply_text("Tournament ended. No valid winner.")
 
 async def xpboost(update,context):
     if not await ensure_allowed_chat(update,context): return
@@ -1247,14 +1418,19 @@ async def remove_suiball(update,context):
     players[t]["suiballs"]=max(0,int(players.get(t,{}).get("suiballs",0))-amt); save_players(players)
     await update.message.reply_text(f"✅ Removed {amt} Suiballs from {display_name(t)}.")
 
-PENDING_RESETS = {}
 async def reset_leaderboard(update,context):
     if not await ensure_allowed_chat(update,context): return
     caller=await _bootstrap_user(update)
     if not update.message or not update.effective_chat or not await is_privileged_user(context.bot,int(update.effective_chat.id),int(caller)):
         await update.message.reply_text("❌ Only privileged.")
         return
-    now=time.monotonic()
+    
+    # Reset Wins/Losses für alle Spieler
+    for uid in players:
+        players[uid]["wins"] = 0
+        players[uid]["losses"] = 0
+    save_players(players)
+    await update.message.reply_text("🏆 Leaderboard reset! All win/loss records cleared.", reply_markup=main_menu_kb(caller))
 
 # ---------- MENU CALLBACKS ----------
 async def menu_callback(update,context):
@@ -1287,6 +1463,10 @@ async def menu_callback(update,context):
         await q.answer()
         rankings_image = resolve_rankings_image_path()
         rankings_text = build_rankings_text(uid, 10)
+        if is_tournament_active():
+            tourney_type = get_tournament_type()
+            type_names = {"earth": "🌍 EARTH", "fire": "🔥 FIRE", "water": "💧 WATER"}
+            rankings_text = f"🏆 {type_names.get(tourney_type, 'TOURNAMENT')} MODE ACTIVE! 🏆\n\n" + rankings_text
         if rankings_image:
             with open(rankings_image, "rb") as photo:
                 await context.bot.send_photo(chat_id=q.message.chat.id, photo=photo, caption=rankings_text, reply_markup=main_menu_kb(uid), parse_mode="HTML")
@@ -1370,8 +1550,10 @@ def main():
     app.add_handler(CommandHandler("givesuiball",give_suiball))
     app.add_handler(CommandHandler("takesuiball",remove_suiball))
     app.add_handler(CommandHandler("resetleaderboard",reset_leaderboard))
-    app.add_handler(CommandHandler("tournamenton",tournamenton))
-    app.add_handler(CommandHandler("tournamentoff",tournamentoff))
+    app.add_handler(CommandHandler("tournamentearth",tournament_earth))
+    app.add_handler(CommandHandler("tournamentfire",tournament_fire))
+    app.add_handler(CommandHandler("tournamentwater",tournament_water))
+    app.add_handler(CommandHandler("tournamentoff",tournament_off))
     app.add_handler(CommandHandler("changechamp",change_champ))
     app.add_handler(CommandHandler("xpboost",xpboost))
     app.add_handler(CommandHandler("endfight",endfight))
@@ -1393,7 +1575,9 @@ def main():
             try: await _afk_watcher(application)
             except Exception as e: print(f"[AFK] {e}")
 
-    async def post_init(application): asyncio.create_task(_afk_loop(application))
+    async def post_init(application): 
+        asyncio.create_task(_afk_loop(application))
+
     app.post_init = post_init
 
     print("Suimon Arena bot running...")
