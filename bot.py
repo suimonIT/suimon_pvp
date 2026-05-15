@@ -1235,8 +1235,12 @@ async def challenge_callback(update,context):
     for i,s in enumerate(its):
         fnt="💀" if s["hp"]<=0 else ""
         kb.append([InlineKeyboardButton(f"{suimon_full_name(s)} Lv.{s['level']} ({s['hp']}/{get_stats(s['species'],s['level'])['hp']}) {fnt}",callback_data=f"select_suimon|challenger|{i}")])
-    try: await q.message.reply_text(f"🎯 <b>{html.escape(display_name(chal))}</b>, choose your Suimon:",reply_markup=InlineKeyboardMarkup(kb),parse_mode="HTML")
-    except: pass
+    try:
+        await context.bot.send_message(cid, f"🎯 <b>{html.escape(display_name(chal))}</b>, choose your Suimon:", reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    except Exception as e:
+        print(f"[fight] Error sending Suimon selection: {e}")
+        PENDING_SELECTION.pop(cid, None)
+        await context.bot.send_message(cid, "❌ Selection failed. Please use /fight again.")
 
 async def select_suimon_callback(update,context):
     q=update.callback_query
