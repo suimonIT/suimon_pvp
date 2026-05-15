@@ -84,7 +84,7 @@ def get_suiball_cap():
     return SUIBALL_CAP_TOURNAMENT if is_tournament_active() else SUIBALL_CAP
 
 CHAMPS = {
-    "": {"display":"Basaurimon","type":"nature","base":{"hp":162,"atk":25,"def":11,"spd":9},"moves":[
+    "basaurimon": {"display":"Basaurimon","type":"nature","base":{"hp":162,"atk":25,"def":11,"spd":9},"moves":[
         {"name":"Vine Whip","kind":"damage","power":48,"acc":0.95,"text":["whips out something long and flexible!","snaps its vine like a dominatrix!","lashes harder than a dealer!"]},
         {"name":"Needle Rain","kind":"damage_poison","power":36,"acc":0.92,"poison_chance":0.40,"poison_turns":[2,3],"crit_bonus":0.08,"text":["opens the vial!","launches a volley!","rains down!"]},
         {"name":"Leaf Storm","kind":"damage","power":55,"acc":0.88,"text":["unleashes Leaf Storm!","summons a vortex!","calls down a tempest!"]},
