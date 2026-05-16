@@ -109,7 +109,7 @@ CHAMPS = {
         {"name":"Bambi Blaze","kind":"damage","power":65,"acc":0.80,"text":["looks innocent!","the world burns!","sets the forest on fire!"]},
         {"name":"Ember Dash","kind":"damage","power":42,"acc":0.96,"text":["dashes forward!","a quick charge!","speeds through!"]},
         {"name":"Crack Surge","kind":"damage","power":48,"acc":0.88,"spd_boost_chance":0.25,"spd_boost":2,"text":["hits the pipe!","inhales a line!","addict's rush!"]}]},
-    "jengacide": {"display":"Jengacide","type":"nature","base":{"hp":170,"atk":22,"def":14,"spd":7},"moves":[
+    "jengacide": {"display":"Jengacide","type":"nature","base":{"hp":160,"atk":21,"def":13,"spd":7},"moves":[
         {"name":"Blunt Force Trauma","kind":"damage","power":52,"acc":0.85,"def_down_chance":0.18,"def_down_turns":2,"text":["slams forward!","clubs the enemy!","delivers a hit!"]},
         {"name":"Ketamine Quake","kind":"damage","power":44,"acc":0.82,"stun_chance":0.35,"stun_turns":1,"text":["stomps the ground!","unleashes a tremor!","wobbles reality!"]},
         {"name":"Molly Pressure","kind":"status_debuff","power":0,"acc":0.90,"def_speed_debuff":True,"debuff_turns":2,"text":["drops a pill!","the love drug hits!","sends waves!"]},
